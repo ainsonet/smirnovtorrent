@@ -76,6 +76,13 @@ Peer protocol implementation.
 - **Key functions**: `SendHandshake`, `ReadHandshake`, `SendMessage`, `ReadMessage`
 - **Message types**: Choke, Unchoke, Interested, Have, Bitfield, Request, Piece, Cancel
 
+### `internal/dht`
+Distributed Hash Table client.
+- **Responsibility**: Decentralized peer discovery
+- **Key types**: `DHTClient`, `DHTNode`, `KademliaTable`
+- **Key functions**: `FindPeer`, `Start`, `Stop`
+- **Protocol**: Kademlia DHT over UDP
+
 ### `internal/engine`
 Download orchestration.
 - **Responsibility**: Coordinate the download process

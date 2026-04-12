@@ -31,6 +31,7 @@ type DownloadEngine struct {
 	statusMu     sync.RWMutex
 	numWorkers   int
 	seedMode     bool
+	progressCallback func(float64, int, int, int, float64)
 }
 
 // DownloadStatus состояние загрузки
@@ -60,6 +61,11 @@ func NewDownloadEngine(torrent *parser.Torrent, outputDir string) *DownloadEngin
 		cancel:     nil,
 		numWorkers: 4, // 4 параллельных загрузчика
 	}
+}
+
+// SetProgressCallback устанавливает callback для обновления прогресса
+func (e *DownloadEngine) SetProgressCallback(cb func(float64, int, int, int, float64)) {
+	e.progressCallback = cb
 }
 
 // Start начинает загрузку
@@ -262,8 +268,11 @@ func (e *DownloadEngine) startSeedMode() {
 
 // downloadLoop основной цикл загрузки
 func (e *DownloadEngine) downloadLoop() error {
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
+
+	var lastBytes int64
+	var lastUpdate time.Time
 
 	for {
 		select {
@@ -277,11 +286,38 @@ func (e *DownloadEngine) downloadLoop() error {
 			return nil
 		case <-ticker.C:
 			e.updateStatus()
-			log.Printf("Progress: %.1f%% (%d/%d pieces), Peers: %d",
-				e.pieceManager.Progress(),
+			
+			// Вычисляем скорость
+			now := time.Now()
+			currentBytes := e.status.Downloaded
+			elapsed := now.Sub(lastUpdate).Seconds()
+			
+			var downloadSpeed float64
+			if elapsed > 0 {
+				downloadSpeed = float64(currentBytes-lastBytes) / elapsed
+			}
+			
+			lastBytes = currentBytes
+			lastUpdate = now
+
+			// Вызываем callback если установлен
+			if e.progressCallback != nil {
+				e.progressCallback(
+					e.status.Progress,
+					e.pieceManager.CompletePieces(),
+					e.pieceManager.TotalPieces(),
+					e.peerPool.GetActivePeerCount(),
+					downloadSpeed,
+				)
+			}
+
+			// Логирование
+			log.Printf("Progress: %.1f%% (%d/%d pieces), Peers: %d, Speed: %.1f KB/s",
+				e.status.Progress,
 				e.pieceManager.CompletePieces(),
 				e.pieceManager.TotalPieces(),
-				e.peerPool.GetActivePeerCount())
+				e.peerPool.GetActivePeerCount(),
+				downloadSpeed/1024)
 		}
 	}
 }

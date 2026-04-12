@@ -116,31 +116,19 @@ func download(source string) {
 	// Создаём и запускаем движок загрузки
 	eng := engine.NewDownloadEngine(torrent, "")
 	
-	// Запускаем обновление прогресса в отдельной горутине
-	done := make(chan bool)
+	// Устанавливаем callback для обновления прогресса
 	prog := NewProgressBar(40)
+	eng.SetProgressCallback(func(progress float64, current, total, peers int, speed float64) {
+		prog.Show(progress, current, total, peers, speed)
+	})
 
-	go func() {
-		for {
-			select {
-			case <-done:
-				prog.Finish()
-				return
-			default:
-				// Тут можно получать прогресс от движка
-				// Пока заглушка
-				time.Sleep(1 * time.Second)
-			}
-		}
-	}()
-	
 	if err := eng.Start(); err != nil {
-		close(done)
+		prog.Finish()
 		fmt.Printf("Download error: %v\n", err)
 		os.Exit(1)
 	}
 
-	close(done)
+	prog.Finish()
 	fmt.Println()
 	fmt.Println("Download completed successfully!")
 }

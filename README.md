@@ -62,9 +62,10 @@ smirnovtorrent/
 - [x] Peer pool management
 - [x] Seed-режим (раздача)
 - [x] Magnet links (парсинг)
-- [ ] CLI интерфейс (полный с прогресс-баром)
-- [ ] DHT support (полная реализация)
+- [x] CLI с реальным прогресс-баром
+- [x] DHT support (базовая реализация)
 - [ ] BitTorrent encryption
+- [ ] Полная DHT реализация
 
 ## 📄 License
 
