@@ -2,6 +2,7 @@ package encryption
 
 import (
 	"crypto/md5"
+	"crypto/rand"
 	"crypto/rc4"
 	"crypto/sha1"
 	"fmt"
@@ -10,46 +11,73 @@ import (
 	"time"
 )
 
+// MSE支持的模式
+const (
+	// Plaintext handshake
+	MSEPlainText = iota
+	// RC4 encrypted
+	MSEEncrypted
+	// RC4 with header obfuscation
+	MSEObfuscated
+)
+
 // MSEMessageStreamEncryption реализует BitTorrent Message Stream Encryption
 type MSEMessageStreamEncryption struct {
-	encryptionKey  []byte
-	vc             [8]byte // Verification Constant
+	encryptionKey  []byte // S = hash(info_hash, key)
+	vc             [8]byte // Verification Constant (8 zero bytes)
 	remoteVc       [8]byte
 	encryptCipher  *rc4.Cipher
 	decryptCipher  *rc4.Cipher
 	remoteS        []byte
 	localS         []byte
+	mode           int
+	infoHash       [20]byte
+	peerID         [20]byte
 }
 
 // NewMSEEncryption создаёт новый MSE шифр
-func NewMSEEncryption(encryptionKey []byte) *MSEMessageStreamEncryption {
+func NewMSEEncryption(infoHash [20]byte) *MSEMessageStreamEncryption {
+	// S = hash('key', S) где S = info_hash
+	key := []byte("key")
+	hash := sha1.New()
+	hash.Write(key)
+	hash.Write(infoHash[:])
+	encryptionKey := hash.Sum(nil)
+	
 	return &MSEMessageStreamEncryption{
 		encryptionKey: encryptionKey,
+		infoHash:      infoHash,
+		mode:          MSEEncrypted,
 	}
 }
 
-// InitHandshake инициирует рукопожатие с шифрованием
-func (e *MSEMessageStreamEncryption) InitHandshake(conn net.Conn, infoHash [20]byte, peerID [20]byte) error {
-	// Генерируем случайные числа
+// SetMode устанавливает режим шифрования
+func (e *MSEMessageStreamEncryption) SetMode(mode int) {
+	e.mode = mode
+}
+
+// InitHandshake инициирует рукопожатие с шифрованием (outgoing connection)
+func (e *MSEMessageStreamEncryption) InitHandshake(conn net.Conn) error {
+	// Генерируем случайный S (20 bytes)
 	e.localS = make([]byte, 20)
-	if _, err := io.ReadFull(conn, e.localS); err != nil {
+	if _, err := rand.Read(e.localS); err != nil {
 		return err
 	}
 
-	// Вычисляем hash
-	e.localS = e.computeHash(e.localS, infoHash, e.encryptionKey)
+	// Отправляем S
+	if _, err := conn.Write(e.localS); err != nil {
+		return err
+	}
 
-	// Генерируем случайные числа для IA
+	// Читаем S от пира
 	e.remoteS = make([]byte, 20)
 	if _, err := io.ReadFull(conn, e.remoteS); err != nil {
 		return err
 	}
 
-	e.remoteS = e.computeHash(e.remoteS, infoHash, e.encryptionKey)
-
 	// Вычисляем RC4 ключи
-	encryptKey := e.deriveKey(e.localS, e.remoteS, true)
-	decryptKey := e.deriveKey(e.remoteS, e.localS, true)
+	encryptKey := e.deriveKey(e.localS, e.remoteS)
+	decryptKey := e.deriveKey(e.remoteS, e.localS)
 
 	// Инициализируем шифры
 	encCipher, err := rc4.NewCipher(encryptKey)
@@ -64,30 +92,69 @@ func (e *MSEMessageStreamEncryption) InitHandshake(conn net.Conn, infoHash [20]b
 	}
 	e.decryptCipher = decCipher
 
+	// Синхронизируем RC4 с VC (8 zero bytes)
+	e.vc = [8]byte{}
+	e.remoteVc = [8]byte{}
+	
+	// Discard initial RC4 keystream (VC synchronization)
+	dummy := make([]byte, 8)
+	e.encryptCipher.XORKeyStream(dummy, dummy)
+	e.decryptCipher.XORKeyStream(dummy, dummy)
+
 	return nil
 }
 
-// computeHash вычисляет hash для рукопожатия
-func (e *MSEMessageStreamEncryption) computeHash(data []byte, infoHash [20]byte, encryptionKey []byte) []byte {
-	hash := sha1.New()
-	hash.Write(data)
-	hash.Write(infoHash[:])
-	hash.Write(encryptionKey)
-	return hash.Sum(nil)
+// AcceptHandshake принимает рукопожатие (incoming connection)
+func (e *MSEMessageStreamEncryption) AcceptHandshake(conn net.Conn) error {
+	// Читаем S от пира
+	e.remoteS = make([]byte, 20)
+	if _, err := io.ReadFull(conn, e.remoteS); err != nil {
+		return err
+	}
+
+	// Генерируем наш S
+	e.localS = make([]byte, 20)
+	if _, err := rand.Read(e.localS); err != nil {
+		return err
+	}
+
+	// Отправляем наш S
+	if _, err := conn.Write(e.localS); err != nil {
+		return err
+	}
+
+	// Вычисляем RC4 ключи
+	encryptKey := e.deriveKey(e.remoteS, e.localS)
+	decryptKey := e.deriveKey(e.localS, e.remoteS)
+
+	// Инициализируем шифры
+	encCipher, err := rc4.NewCipher(encryptKey)
+	if err != nil {
+		return fmt.Errorf("failed to create encrypt cipher: %w", err)
+	}
+	e.encryptCipher = encCipher
+
+	decCipher, err := rc4.NewCipher(decryptKey)
+	if err != nil {
+		return fmt.Errorf("failed to create decrypt cipher: %w", err)
+	}
+	e.decryptCipher = decCipher
+
+	// Синхронизируем RC4 с VC
+	dummy := make([]byte, 8)
+	e.encryptCipher.XORKeyStream(dummy, dummy)
+	e.decryptCipher.XORKeyStream(dummy, dummy)
+
+	return nil
 }
 
-// deriveKey выводит ключ для RC4
-func (e *MSEMessageStreamEncryption) deriveKey(localS, remoteS []byte, encrypt bool) []byte {
-	// Простая реализация - в полной версии используется более сложное derivation
+// deriveKey выводит ключ для RC4 (16 bytes)
+func (e *MSEMessageStreamEncryption) deriveKey(localS, remoteS []byte) []byte {
+	// K = MD5(S, S_other)
 	hash := md5.New()
 	hash.Write(localS)
 	hash.Write(remoteS)
-	if encrypt {
-		hash.Write([]byte("key"))
-	} else {
-		hash.Write([]byte("key"))
-	}
-	return hash.Sum(nil)[:16] // 16 байт ключ
+	return hash.Sum(nil)[:16]
 }
 
 // EncryptData шифрует данные
@@ -133,23 +200,23 @@ func (ec *EncryptedConnection) Read(p []byte) (n int, err error) {
 		return n, err
 	}
 
-	decrypted, err := ec.encryption.DecryptData(p[:n])
-	if err != nil {
-		return n, err
+	if n > 0 && ec.encryption.decryptCipher != nil {
+		decrypted := make([]byte, n)
+		ec.encryption.decryptCipher.XORKeyStream(decrypted, p[:n])
+		copy(p, decrypted)
 	}
 
-	copy(p, decrypted)
 	return n, nil
 }
 
 // Write пишет данные с шифрованием
 func (ec *EncryptedConnection) Write(p []byte) (n int, err error) {
-	encrypted, err := ec.encryption.EncryptData(p)
-	if err != nil {
-		return 0, err
+	if ec.encryption.encryptCipher != nil {
+		encrypted := make([]byte, len(p))
+		ec.encryption.encryptCipher.XORKeyStream(encrypted, p)
+		return ec.conn.Write(encrypted)
 	}
-
-	return ec.conn.Write(encrypted)
+	return ec.conn.Write(p)
 }
 
 // Close закрывает соединение
@@ -214,4 +281,19 @@ func ValidateHandshake(data []byte) bool {
 	// Проверяем что данные начинаются с "BitTorrent protocol" (17 символов)
 	protocol := string(data[:19])
 	return protocol == "BitTorrent protocol"
+}
+
+// TryEncryption пытается установить зашифрованное соединение
+func TryEncryption(conn net.Conn, infoHash [20]byte) (net.Conn, *MSEMessageStreamEncryption, error) {
+	mse := NewMSEEncryption(infoHash)
+	
+	// Пробуем encrypted handshake
+	if err := mse.InitHandshake(conn); err != nil {
+		// Не удалось установить шифрование, возвращаем обычное соединение
+		return conn, nil, nil
+	}
+	
+	// Создаём зашифрованное соединение
+	encConn := NewEncryptedConnection(conn, mse)
+	return encConn, mse, nil
 }

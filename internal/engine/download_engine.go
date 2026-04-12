@@ -82,8 +82,8 @@ func (e *DownloadEngine) SetRateLimits(downloadRate, uploadRate int64) {
 }
 
 // SetEncryptionKey включает шифрование
-func (e *DownloadEngine) SetEncryptionKey(key []byte) {
-	e.encryption = encryption.NewMSEEncryption(key)
+func (e *DownloadEngine) SetEncryptionKey(infoHash [20]byte) {
+	e.encryption = encryption.NewMSEEncryption(infoHash)
 }
 
 // EnableResume включает продолжение загрузки

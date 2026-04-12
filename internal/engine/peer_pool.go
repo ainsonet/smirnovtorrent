@@ -176,7 +176,7 @@ func (pp *PeerPool) AddPeer(p tracker.PeerInfo) error {
 		return err
 	}
 
-	// Читаем handshake от пирa
+	// Читаем handshake от пира
 	remoteInfoHash, remotePeerID, err := conn.ReadHandshake()
 	if err != nil {
 		conn.Close()
