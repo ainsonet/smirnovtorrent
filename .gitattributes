@@ -1,0 +1,7 @@
+# Fix line endings for Windows
+* text=auto
+*.go text
+*.md text
+*.txt text
+LICENSE text
+.go-version text
