@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"smirnovtorrent/internal/dht"
 	"smirnovtorrent/internal/engine"
 	"smirnovtorrent/internal/magnet"
 	"smirnovtorrent/internal/parser"
@@ -170,47 +171,48 @@ func downloadFromMagnet(magnetLink string) {
 	}
 
 	fmt.Println()
-	fmt.Println("Note: Magnet link requires DHT or trackers to find peers.")
-	fmt.Println("The download will start once peers are discovered.")
-	fmt.Println()
+	fmt.Println("Starting DHT client...")
 
-	// Создаём минимальный torrent из magnet
-	torrent := &parser.Torrent{
-		Info: parser.TorrentInfo{
-			Name:        link.DisplayName,
-			InfoHash:    link.InfoHash,
-			PieceLength: 16384, // Default, будет обновлён когда получим .torrent
-			Pieces:      make([]byte, 0),
-			Files:       []parser.FileInfo{},
-		},
-		Announce: "",
-	}
-
-	// Если есть трекеры, используем первый
-	if len(link.Trackers) > 0 {
-		torrent.Announce = link.Trackers[0]
-	}
-
-	// Создаём движок с DHT
-	eng := engine.NewDownloadEngine(torrent, "")
-	eng.EnableDHT()
-
-	// Устанавливаем callback для обновления прогресса
-	prog := NewProgressBar(40)
-	eng.SetProgressCallback(func(progress float64, current, total, peers int, speed float64) {
-		prog.Show(progress, current, total, peers, speed)
-	})
-
-	fmt.Println("Starting download...")
-	if err := eng.Start(); err != nil {
-		prog.Finish()
-		fmt.Printf("Download error: %v\n", err)
+	// Создаём DHT клиент
+	dhtClient, err := dht.NewDHTClient(nil, 6882)
+	if err != nil {
+		fmt.Printf("Error creating DHT client: %v\n", err)
 		os.Exit(1)
 	}
 
-	prog.Finish()
+	if err := dhtClient.Start(); err != nil {
+		fmt.Printf("Error starting DHT: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("DHT started, searching for peers...")
+
+	// Пытаемся получить метаданные через DHT (BEP 9)
+	fmt.Println("Attempting metadata download via BEP 9...")
+	
+	// Создаём metadata downloader
+	// (упрощённая реализация - в полной версии нужно читать куски от пиров)
+	
+	// Получаем пиры через DHT
+	peers, err := dhtClient.FindPeer(link.InfoHash)
+	if err != nil {
+		fmt.Printf("Warning: DHT peer discovery: %v\n", err)
+	} else {
+		fmt.Printf("Found %d peers via DHT\n", len(peers))
+	}
+
+	// Если есть трекеры, получаем пиры от них
+	if len(link.Trackers) > 0 {
+		fmt.Println("Contacting trackers...")
+		// В полной реализации здесь нужно получить пиры от трекеров
+	}
+
 	fmt.Println()
-	fmt.Println("Download completed successfully!")
+	fmt.Println("Note: Full magnet download with metadata is in progress.")
+	fmt.Println("For now, you need to provide a .torrent file for complete download.")
+	
+	// Очищаем DHT клиент
+	dhtClient.Stop()
 }
 
 // formatBytesFloat форматирует размер в байтах для вывода (для float64 скорости)

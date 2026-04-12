@@ -139,7 +139,7 @@ func (d *DHTClient) Start() error {
 	return nil
 }
 
-// FindPeer ищет пиры для конкретного info hash
+// FindPeer ищет пиры для конкретного info hash с использованием Kademlia
 func (d *DHTClient) FindPeer(infoHash string) ([]string, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -152,37 +152,78 @@ func (d *DHTClient) FindPeer(infoHash string) ([]string, error) {
 		return nil, fmt.Errorf("invalid info hash: %w", err)
 	}
 
-	// Отправляем get_peers запрос к bootstrap узлам
-	go func() {
-		for _, addr := range d.bootstrap {
-			if err := d.sendGetPeers(addr, hashBytes); err != nil {
-				log.Printf("Failed to send get_peers to %s: %v", addr, err)
-			}
-		}
-	}()
+	var targetID [20]byte
+	copy(targetID[:], hashBytes)
 
-	// Ждём результаты (30 секунд timeout)
+	// Запускаем итеративный поиск
+	go d.iterativeFindPeers(targetID)
+
+	// Ждём результаты (45 секунд timeout)
 	peers := []string{}
-	timeout := time.After(30 * time.Second)
+	timeout := time.After(45 * time.Second)
 	
 	for len(peers) < d.targetPeers {
 		select {
 		case found := <-d.peersFound:
 			peers = append(peers, found...)
 			if len(peers) >= d.targetPeers {
+				log.Printf("Found %d peers via DHT", len(peers))
 				return peers[:d.targetPeers], nil
 			}
 		case <-timeout:
 			if len(peers) > 0 {
+				log.Printf("DHT timeout, found %d peers", len(peers))
 				return peers, nil
 			}
-			return nil, fmt.Errorf("no peers found")
+			log.Printf("DHT timeout, no peers found")
+			return nil, fmt.Errorf("no peers found within timeout")
 		case <-d.ctx.Done():
 			return nil, fmt.Errorf("cancelled")
 		}
 	}
 
 	return peers, nil
+}
+
+// iterativeFindPeers выполняет итеративный поиск пиров по Kademlia
+func (d *DHTClient) iterativeFindPeers(target [20]byte) {
+	// Начинаем с ближайших известных узлов
+	candidates := d.findClosestNodes(target, KBucketSize)
+	visited := make(map[[20]byte]bool)
+	
+	// Итеративно запрашиваем узлы
+	for i := 0; i < 3 && len(candidates) > 0; i++ {
+		var newCandidates []*DHTNode
+		
+		for _, node := range candidates {
+			nodeKey := node.ID
+			if visited[nodeKey] {
+				continue
+			}
+			visited[nodeKey] = true
+			
+			// Отправляем get_peers
+			addr := fmt.Sprintf("%s:%d", node.IP, node.Port)
+			if err := d.sendGetPeers(addr, target[:]); err != nil {
+				continue
+			}
+			
+			// Также отправляем find_node для обновления таблицы
+			d.sendFindNode(addr, target)
+			
+			// Ждём немного для получения ответа
+			time.Sleep(100 * time.Millisecond)
+		}
+		
+		// Получаем новые кандидаты из ответов
+		newCandidates = d.findClosestNodes(target, KBucketSize)
+		if len(newCandidates) == 0 {
+			break
+		}
+		candidates = newCandidates
+	}
+	
+	log.Printf("Iterative find completed, visited %d nodes", len(visited))
 }
 
 // sendGetPeers отправляет get_peers запрос к узлу
