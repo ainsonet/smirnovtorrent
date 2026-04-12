@@ -69,7 +69,7 @@ smirnovtorrent/
 - [x] BitTorrent encryption (MSE/PE)
 - [x] Rate limiting (скорость загрузки/отдачи)
 - [x] Resume support (продолжение загрузок)
-- [ ] Web UI
+- [ ] GUI приложение (WebView/Tauri)
 - [ ] Полная DHT реализация
 
 ## 📄 License
