@@ -3,6 +3,7 @@ package bencode
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -346,4 +347,14 @@ func WriteUint64(w io.Writer, v uint64) error {
 	binary.BigEndian.PutUint64(buf[:], v)
 	_, err := w.Write(buf[:])
 	return err
+}
+
+// DecodeHexString декодирует hex строку в байты
+func DecodeHexString(hexStr string) ([]byte, error) {
+	return hex.DecodeString(hexStr)
+}
+
+// EncodeHexString кодирует байты в hex строку
+func EncodeHexString(data []byte) string {
+	return hex.EncodeToString(data)
 }

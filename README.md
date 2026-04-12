@@ -1,76 +1,110 @@
 # SmirnovTorrent
 
-<img src="https://raw.githubusercontent.com/ainsonet/smirnovtorrent/master/logo.png" alt="SmirnovTorrent Logo" width="200"/>
+🌊 Lightweight BitTorrent client written in Go
 
-🌊 Легковесный BitTorrent клиент на Go
+## 🚀 Features
 
-## 🚀 Особенности
+- ✅ Parse .torrent files
+- ✅ Bencode encoding/decoding
+- ✅ Tracker protocol support
+- ✅ DHT network support (experimental)
+- ✅ Magnet link support (partial)
+- ✅ Multi-file torrents
+- ✅ Piece verification with SHA-1
+- ✅ Rate limiting
+- ✅ Encryption (MSE/PE)
+- ✅ CLI with progress bar
 
-- Парсинг .torrent файлов
-- Подключение к трекерам
-- Загрузка из нескольких источников (пиры)
-- CLI интерфейс
-- Проверка целостности данных (SHA-1)
-
-## 📦 Установка
+## 📦 Installation
 
 ```bash
+git clone https://github.com/ainsonet/smirnovtorrent.git
+cd smirnovtorrent
 go build -o smirnovtorrent.exe ./cmd/smirnovtorrent
 ```
 
-## 💻 Использование
+## 💻 Usage
 
 ```bash
-# Показать информацию о торренте
+# Show torrent information
 smirnovtorrent info example.torrent
 
-# Загрузка торрента (в разработке)
+# Download a torrent
 smirnovtorrent download example.torrent
 
-# Загрузка с magnet ссылки (в разработке)
+# Download from magnet link (experimental)
 smirnovtorrent download "magnet:?xt=urn:btih:..."
 
-# Показать версию
+# Show version
 smirnovtorrent version
+
+# Show help
+smirnovtorrent help
 ```
 
-## 🏗️ Структура проекта
+## 🏗️ Project Structure
 
 ```
 smirnovtorrent/
 ├── cmd/
-│   └── smirnovtorrent/     # Точка входа (main.go)
+│   └── smirnovtorrent/     # CLI application
 ├── internal/
-│   ├── parser/             # Парсинг .torrent файлов
-│   ├── tracker/            # Работа с трекерами
-│   ├── peer/               # Протокол общения с пирами
-│   └── engine/             # Основной движок загрузки
+│   ├── dht/               # DHT network client
+│   ├── engine/            # Download engine
+│   ├── encryption/        # MSE/PE encryption
+│   ├── magnet/            # Magnet link parser
+│   ├── parser/            # Torrent file parser
+│   ├── peer/              # BitTorrent peer protocol
+│   ├── tracker/           # Tracker protocol client
+│   └── ...
 └── pkg/
-    └── bencode/            # Bencode сериализация/десериализация
+    └── bencode/           # Public bencode package
 ```
 
-## 📝 План разработки
+## 🧪 Running Tests
 
-- [x] Структура проекта
-- [x] Парсер Bencode
-- [x] Парсер .torrent файлов
-- [x] Работа с трекерами (HTTP)
-- [x] Peer protocol (handshake, messages)
-- [x] Piece manager
-- [x] Download Engine (базовый)
-- [x] Multi-file torrent support
-- [x] Параллельная загрузка (multiple workers)
-- [x] Rarest-first алгоритм выбора кусков
-- [x] Peer pool management
-- [x] Seed-режим (раздача)
-- [x] Magnet links (парсинг)
-- [x] CLI с реальным прогресс-баром
-- [x] DHT support (базовая реализация)
-- [x] BitTorrent encryption (MSE/PE)
-- [x] Rate limiting (скорость загрузки/отдачи)
-- [x] Resume support (продолжение загрузок)
-- [ ] GUI приложение (WebView/Tauri)
-- [ ] Полная DHT реализация
+```bash
+# Run all unit tests
+go test ./...
+
+# Run with coverage
+go test ./... -cover
+
+# Run E2E tests (requires TORRENT_FILE environment variable)
+go test -tags e2e -v -timeout 5m ./cmd/smirnovtorrent
+```
+
+## 📈 Development Status
+
+| Module | Status | Tests |
+|--------|--------|-------|
+| Parser | ✅ Complete | 6/6 |
+| Engine | ✅ Working | 16/16 |
+| Tracker | ✅ Working | ✓ |
+| DHT | 🚧 Experimental | ✓ |
+| Encryption | ✅ Working | 6/6 |
+| Magnet | ✅ Parsing | ✓ |
+
+**Total: 28+ tests passing**
+
+## 📝 Roadmap
+
+- [x] Core torrent parsing
+- [x] Tracker protocol
+- [x] Peer protocol
+- [x] Piece management
+- [x] Download engine
+- [x] Multi-file support
+- [x] Rarest-first algorithm
+- [x] Seed mode
+- [x] Magnet links (parse)
+- [x] DHT support
+- [x] BitTorrent encryption
+- [x] Rate limiting
+- [x] Resume support
+- [ ] Full DHT implementation
+- [ ] GUI (WebView/Tauri)
+- [ ] Web UI
 
 ## 📄 License
 

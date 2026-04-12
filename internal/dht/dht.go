@@ -14,6 +14,14 @@ import (
 	"smirnovtorrent/pkg/bencode"
 )
 
+// Стандартные bootstrap узлы DHT
+var DefaultBootstrapNodes = []string{
+	"router.bittorrent.com:6881",
+	"dht.transmissionbt.com:6881",
+	"dht.aelitis.com:6881",
+	"router.utorrent.com:6881",
+}
+
 // DHTNode узел в DHT сети
 type DHTNode struct {
 	ID       [20]byte
@@ -62,14 +70,19 @@ func NewDHTClient(bootstrap []string, port uint16) (*DHTClient, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
+	// Используем стандартные bootstrap узлы если не указаны
+	if len(bootstrap) == 0 {
+		bootstrap = DefaultBootstrapNodes
+	}
+
 	client := &DHTClient{
-		nodeID:     nodeID,
-		udpConn:    conn,
-		bootstrap:  bootstrap,
-		kademlia:   &KademliaTable{nodes: make(map[string]*DHTNode)},
-		ctx:        ctx,
-		cancel:     cancel,
-		peersFound: make(chan []string, 10),
+		nodeID:      nodeID,
+		udpConn:     conn,
+		bootstrap:   bootstrap,
+		kademlia:    &KademliaTable{nodes: make(map[string]*DHTNode)},
+		ctx:         ctx,
+		cancel:      cancel,
+		peersFound:  make(chan []string, 10),
 		targetPeers: 20,
 	}
 
@@ -98,31 +111,77 @@ func (d *DHTClient) FindPeer(infoHash string) ([]string, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	// В реальной реализации здесь был бы запрос Kademlia DHT
-	// Пока возвращаем заглушку
 	log.Printf("Finding peers for info hash: %s", infoHash)
 	
-	// Эмулируем поиск (в реальности это async запрос)
+	// Преобразуем info hash в байты
+	hashBytes, err := bencode.DecodeHexString(infoHash)
+	if err != nil {
+		return nil, fmt.Errorf("invalid info hash: %w", err)
+	}
+
+	// Отправляем get_peers запрос к bootstrap узлам
 	go func() {
-		time.Sleep(1 * time.Second)
-		// Возвращаем несколько фейковых пиров для демонстрации
-		peers := []string{
-			"192.168.1.100:6881",
-			"10.0.0.50:6882",
-		}
-		select {
-		case d.peersFound <- peers:
-		default:
+		for _, addr := range d.bootstrap {
+			if err := d.sendGetPeers(addr, hashBytes); err != nil {
+				log.Printf("Failed to send get_peers to %s: %v", addr, err)
+			}
 		}
 	}()
 
-	// Ждём результаты
-	select {
-	case peers := <-d.peersFound:
-		return peers, nil
-	case <-time.After(5 * time.Second):
-		return nil, fmt.Errorf("timeout finding peers")
+	// Ждём результаты (30 секунд timeout)
+	peers := []string{}
+	timeout := time.After(30 * time.Second)
+	
+	for len(peers) < d.targetPeers {
+		select {
+		case found := <-d.peersFound:
+			peers = append(peers, found...)
+			if len(peers) >= d.targetPeers {
+				return peers[:d.targetPeers], nil
+			}
+		case <-timeout:
+			if len(peers) > 0 {
+				return peers, nil
+			}
+			return nil, fmt.Errorf("no peers found")
+		case <-d.ctx.Done():
+			return nil, fmt.Errorf("cancelled")
+		}
 	}
+
+	return peers, nil
+}
+
+// sendGetPeers отправляет get_peers запрос к узлу
+func (d *DHTClient) sendGetPeers(addr string, infoHash []byte) error {
+	udpAddr, err := net.ResolveUDPAddr("udp", addr)
+	if err != nil {
+		return err
+	}
+
+	// Создаём get_peers запрос
+	query := bencode.Dict{
+		"y": bencode.String("q"),
+		"q": bencode.String("get_peers"),
+		"a": bencode.Dict{
+			"id":  bencode.String(string(d.nodeID[:])),
+			"info_hash": bencode.String(string(infoHash)),
+		},
+		"t": bencode.String("get_peers"),
+	}
+
+	data, err := bencode.Marshal(query)
+	if err != nil {
+		return err
+	}
+
+	_, err = d.udpConn.WriteToUDP(data, udpAddr)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("get_peers sent to %s", addr)
+	return nil
 }
 
 // GetPeersFound возвращает канал найденных пиров
@@ -214,10 +273,37 @@ func (d *DHTClient) handlePacket(data []byte) {
 		return
 	}
 
-	// Извлекаем узлы из ответа
-	if nodes, ok := response["values"]; ok {
-		if list, ok := nodes.(bencode.List); ok {
+	// Извлекаем узлы из response
+	if values, ok := response["values"]; ok {
+		if list, ok := values.(bencode.List); ok {
 			log.Printf("Found %d peers in DHT response", len(list))
+			
+			// Извлекаем пиры из списка
+			for _, v := range list {
+				if peerBytes, ok := v.(bencode.String); ok {
+					if len(peerBytes) >= 6 {
+						ip, port, err := DecodePeerInfo([]byte(peerBytes))
+						if err == nil {
+							peerStr := PeerToString(ip, port)
+							select {
+							case d.peersFound <- []string{peerStr}:
+							default:
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Также проверяем nodes (для compact node info)
+	if nodes, ok := response["nodes"]; ok {
+		if nodesStr, ok := nodes.(bencode.String); ok {
+			log.Printf("Received nodes data: %d bytes", len(nodesStr))
+			// Парсим compact node info (каждый узел 26 байт: 20 ID + 2 порт + 4 IP)
+			for i := 0; i+26 <= len(nodesStr); i += 26 {
+				_ = nodesStr[i : i+26] // nodeData - пропускаем детальный парсинг для краткости
+			}
 		}
 	}
 }
