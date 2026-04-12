@@ -1,5 +1,7 @@
 # SmirnovTorrent
 
+<img src="https://raw.githubusercontent.com/ainsonet/smirnovtorrent/master/logo.png" alt="SmirnovTorrent Logo" width="200"/>
+
 🌊 Lightweight BitTorrent client written in Go
 
 ## 🚀 Features
