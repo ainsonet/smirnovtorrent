@@ -2,8 +2,10 @@ package engine
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"sync"
@@ -16,16 +18,17 @@ import (
 
 // DownloadEngine основной движок загрузки
 type DownloadEngine struct {
-	torrent     *parser.Torrent
-	outputDir   string
+	torrent      *parser.Torrent
+	outputDir    string
 	pieceManager *PieceManager
-	peers       map[string]*peer.PeerConnection
-	peerMutex   sync.RWMutex
-	tracker     *tracker.Tracker
-	cancel      context.CancelFunc
-	ctx         context.Context
-	status      DownloadStatus
-	statusMu    sync.RWMutex
+	peerPool     *PeerPool
+	rarestMgr    *RarestFirstManager
+	tracker      *tracker.Tracker
+	cancel       context.CancelFunc
+	ctx          context.Context
+	status       DownloadStatus
+	statusMu     sync.RWMutex
+	numWorkers   int
 }
 
 // DownloadStatus состояние загрузки
@@ -44,11 +47,16 @@ func NewDownloadEngine(torrent *parser.Torrent, outputDir string) *DownloadEngin
 		outputDir = torrent.Info.Name
 	}
 
+	// Генерируем peer ID
+	peerID := peer.NewPeerID()
+	peerIDStr := string(peerID[:])
+
 	return &DownloadEngine{
-		torrent:      torrent,
-		outputDir:    outputDir,
-		peers:        make(map[string]*peer.PeerConnection),
-		StartTime:    time.Now(),
+		torrent:    torrent,
+		outputDir:  outputDir,
+		ctx:        nil,
+		cancel:     nil,
+		numWorkers: 4, // 4 параллельных загрузчика
 	}
 }
 
@@ -64,6 +72,14 @@ func (e *DownloadEngine) Start() error {
 		e.torrent.Info.Pieces,
 	)
 
+	// Создаём пул пиров
+	peerID := peer.NewPeerID()
+	peerIDStr := string(peerID[:])
+	e.peerPool = NewPeerPool(e.torrent.Info.InfoHash, peerIDStr, 6881, 50)
+
+	// Создаём менеджер Rarest-first
+	e.rarestMgr = NewRarestFirstManager(e.pieceManager, e.peerPool)
+
 	// Создаём трекер
 	if e.torrent.Announce == "" {
 		return fmt.Errorf("no tracker URL available")
@@ -78,6 +94,7 @@ func (e *DownloadEngine) Start() error {
 	log.Printf("Starting download: %s", e.torrent.Info.Name)
 	log.Printf("Total size: %d bytes", e.torrent.TotalSize())
 	log.Printf("Pieces: %d", e.pieceManager.TotalPieces())
+	log.Printf("Workers: %d", e.numWorkers)
 
 	// Создаём директорию для загрузки
 	if err := os.MkdirAll(e.outputDir, 0755); err != nil {
@@ -85,13 +102,10 @@ func (e *DownloadEngine) Start() error {
 	}
 
 	// Получаем список пиров от трекера
-	peerID := peer.NewPeerID()
-	infoHash := e.torrent.InfoHashBytes()
-
 	peers, err := e.tracker.GetPeers(
 		e.torrent.Info.InfoHash,
-		string(peerID[:]),
-		6881, // стандартный порт
+		peerIDStr,
+		6881,
 	)
 	if err != nil {
 		log.Printf("Warning: failed to get peers from tracker: %v", err)
@@ -99,145 +113,149 @@ func (e *DownloadEngine) Start() error {
 		log.Printf("Got %d peers from tracker", len(peers))
 	}
 
-	// Подключаемся к пирам
-	go e.connectToPeers(peers)
+	// Подключаемся к пирам (до 20 сразу)
+	maxInitialPeers := 20
+	if len(peers) < maxInitialPeers {
+		maxInitialPeers = len(peers)
+	}
+	
+	for i := 0; i < maxInitialPeers; i++ {
+		go e.peerPool.AddPeer(peers[i])
+	}
+
+	// Ждём немного чтобы пиры подключились
+	time.Sleep(2 * time.Second)
+
+	// Запускаем воркеров для параллельной загрузки
+	e.startWorkers()
 
 	// Основной цикл загрузки
 	return e.downloadLoop()
 }
 
-// connectToPeers подключается к пирам
-func (e *DownloadEngine) connectToPeers(peers []tracker.PeerInfo) {
-	for _, p := range peers {
-		select {
-		case <-e.ctx.Done():
-			return
-		default:
-			go e.connectToPeer(p)
-		}
+// startWorkers запускает воркеров для параллельной загрузки
+func (e *DownloadEngine) startWorkers() {
+	for i := 0; i < e.numWorkers; i++ {
+		go e.worker(i)
 	}
 }
 
-// connectToPeer подключается к одному пиру
-func (e *DownloadEngine) connectToPeer(p tracker.PeerInfo) {
-	peerObj := &peer.Peer{
-		IP:     p.IP,
-		Port:   p.Port,
-		PeerID: peer.NewPeerID(),
-	}
+// worker воркер который загружает куски
+func (e *DownloadEngine) worker(id int) {
+	log.Printf("Worker %d started", id)
 
-	conn, err := peerObj.Connect()
-	if err != nil {
-		log.Printf("Failed to connect to %s:%d: %v", p.IP, p.Port, err)
-		return
-	}
-
-	defer conn.Close()
-
-	// Отправляем handshake
-	infoHash := e.torrent.InfoHashBytes()
-	peerID := peer.NewPeerID()
-	if err := conn.SendHandshake(infoHash, peerID); err != nil {
-		log.Printf("Failed to send handshake: %v", err)
-		return
-	}
-
-	// Читаем handshake от пирa
-	remoteInfoHash, remotePeerID, err := conn.ReadHandshake()
-	if err != nil {
-		log.Printf("Failed to read handshake: %v", err)
-		return
-	}
-
-	// Проверяем info hash
-	if remoteInfoHash != infoHash {
-		log.Printf("Info hash mismatch, disconnecting")
-		return
-	}
-
-	log.Printf("Connected to peer %s", remotePeerID)
-
-	// Сохраняем соединение
-	e.peerMutex.Lock()
-	e.peers[fmt.Sprintf("%s:%d", p.IP, p.Port)] = conn
-	e.peerMutex.Unlock()
-
-	// Читаем bitfield
-	bitfield, err := conn.ReadBitfield()
-	if err != nil {
-		log.Printf("Failed to read bitfield: %v", err)
-		return
-	}
-
-	log.Printf("Peer has %d pieces", len(bitfield)*8)
-
-	// Сообщаем что мы interested
-	if err := conn.SendInterested(); err != nil {
-		log.Printf("Failed to send interested: %v", err)
-		return
-	}
-
-	// Начинаем запрашивать куски
-	e.requestPieces(conn)
-}
-
-// requestPieces запрашивает куски у пирa
-func (e *DownloadEngine) requestPieces(conn *peer.PeerConnection) {
 	for {
 		select {
 		case <-e.ctx.Done():
 			return
 		default:
-			piece := e.pieceManager.GetNextPiece()
+			// Получаем следующий кусок по Rarest-first
+			piece := e.rarestMgr.GetNextPieceRarest()
 			if piece == nil {
-				// Все куски запрошены или загружены
-				time.Sleep(1 * time.Second)
+				// Нет доступных кусков, ждём
+				time.Sleep(500 * time.Millisecond)
 				continue
 			}
 
-			// Запрашиваем кусок
-			if err := conn.SendRequest(uint32(piece.Index), 0, uint32(e.torrent.PieceLength)); err != nil {
-				log.Printf("Failed to request piece: %v", err)
-				return
+			// Пробуем загрузить кусок
+			if err := e.downloadPiece(id, piece); err != nil {
+				log.Printf("Worker %d: failed to download piece %d: %v", id, piece.Index, err)
+				// Возвращаем кусок как незапрошенный
+				piece.Requested = false
+				time.Sleep(1 * time.Second)
 			}
+		}
+	}
+}
 
-			// Читаем ответ
-			msgType, payload, err := conn.ReadMessage()
-			if err != nil {
-				log.Printf("Failed to read response: %v", err)
-				return
-			}
+// downloadPiece загружает конкретный кусок
+func (e *DownloadEngine) downloadPiece(workerID int, piece *Piece) error {
+	// Ищем пирa у которого есть этот кусок
+	peers := e.peerPool.GetPeersWithPiece(piece.Index)
+	if len(peers) == 0 {
+		return fmt.Errorf("no peers with piece %d", piece.Index)
+	}
 
-			if msgType == peer.MsgPiece {
-				// Проверяем и сохраняем кусок
-				if err := e.pieceManager.MarkPieceComplete(piece.Index, payload); err != nil {
-					log.Printf("Piece validation failed: %v", err)
-					continue
-				}
+	// Выбираем первого свободного пирa
+	var chosenPeer *PeerSlot
+	for _, p := range peers {
+		if !p.Downloading && !p.Choked {
+			chosenPeer = p
+			break
+		}
+	}
 
-				log.Printf("Downloaded piece %d/%d (%.1f%%)",
-					e.pieceManager.CompletePieces(),
-					e.pieceManager.TotalPieces(),
-					e.pieceManager.Progress())
+	if chosenPeer == nil {
+		return fmt.Errorf("all peers with piece %d are busy or choked", piece.Index)
+	}
 
-				// Проверяем завершена ли загрузка
-				if e.pieceManager.IsComplete() {
-					log.Println("Download complete!")
-					
-					// Ждём немного чтобы все куски были сохранены
-					time.Sleep(1 * time.Second)
-					
-					// Собираем файлы
-					if err := e.assembleFiles(); err != nil {
-						log.Printf("Failed to assemble files: %v", err)
-					} else {
-						log.Printf("Files saved to: %s", e.outputDir)
-					}
-					
-					e.cancel()
-					return
-				}
-			}
+	// Помечаем что качаем
+	e.peerPool.MarkPieceDownloading(chosenPeer)
+	defer e.peerPool.MarkPieceDone(chosenPeer)
+
+	// Запрашиваем кусок
+	pieceLength := e.torrent.Info.PieceLength
+	if err := chosenPeer.Conn.SendRequest(uint32(piece.Index), 0, uint32(pieceLength)); err != nil {
+		return err
+	}
+
+	// Читаем ответ
+	msgType, payload, err := chosenPeer.Conn.ReadMessage()
+	if err != nil {
+		return err
+	}
+
+	if msgType != peer.MsgPiece {
+		return fmt.Errorf("expected piece message, got %d", msgType)
+	}
+
+	// Проверяем и сохраняем кусок
+	if err := e.pieceManager.MarkPieceComplete(piece.Index, payload); err != nil {
+		return err
+	}
+
+	log.Printf("Worker %d: downloaded piece %d/%d (%.1f%%)",
+		workerID,
+		e.pieceManager.CompletePieces(),
+		e.pieceManager.TotalPieces(),
+		e.pieceManager.Progress())
+
+	// Проверяем завершена ли загрузка
+	if e.pieceManager.IsComplete() {
+		log.Println("Download complete!")
+		
+		// Ждём немного чтобы все куски были сохранены
+		time.Sleep(1 * time.Second)
+		
+		// Собираем файлы
+		if err := e.assembleFiles(); err != nil {
+			log.Printf("Failed to assemble files: %v", err)
+		} else {
+			log.Printf("Files saved to: %s", e.outputDir)
+		}
+		
+		e.cancel()
+	}
+
+	return nil
+}
+
+// downloadLoop основной цикл загрузки
+func (e *DownloadEngine) downloadLoop() error {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-e.ctx.Done():
+			return nil
+		case <-ticker.C:
+			e.updateStatus()
+			log.Printf("Progress: %.1f%% (%d/%d pieces), Peers: %d",
+				e.pieceManager.Progress(),
+				e.pieceManager.CompletePieces(),
+				e.pieceManager.TotalPieces(),
+				e.peerPool.GetActivePeerCount())
 		}
 	}
 }
@@ -269,11 +287,7 @@ func (e *DownloadEngine) updateStatus() {
 	e.status.Progress = e.pieceManager.Progress()
 	e.status.Downloaded = int64(e.pieceManager.CompletePieces()) * int64(e.torrent.Info.PieceLength)
 	e.status.TotalSize = e.torrent.TotalSize()
-
-	e.peerMutex.RLock()
-	e.status.ActivePeers = len(e.peers)
-	e.peerMutex.RUnlock()
-
+	e.status.ActivePeers = e.peerPool.GetActivePeerCount()
 	e.status.StartTime = time.Now()
 }
 
@@ -290,11 +304,8 @@ func (e *DownloadEngine) Stop() {
 		e.cancel()
 	}
 
-	e.peerMutex.Lock()
-	defer e.peerMutex.Unlock()
-
-	for _, conn := range e.peers {
-		conn.Close()
+	if e.peerPool != nil {
+		e.peerPool.CloseAll()
 	}
 }
 

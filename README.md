@@ -57,9 +57,12 @@ smirnovtorrent/
 - [x] Piece manager
 - [x] Download Engine (базовый)
 - [x] Multi-file torrent support
-- [ ] CLI интерфейс (полный)
-- [ ] Поддержка нескольких пиров (параллельная загрузка)
+- [x] Параллельная загрузка (multiple workers)
+- [x] Rarest-first алгоритм выбора кусков
+- [x] Peer pool management
+- [ ] CLI интерфейс (полный с прогресс-баром)
 - [ ] Seed-режим
+- [ ] DHT support
 
 ## 📄 License
 

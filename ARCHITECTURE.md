@@ -8,15 +8,15 @@ SmirnovTorrent is a lightweight BitTorrent client written in Go. The project fol
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                         CLI (main.go)                        │
-│  - Command parsing                                           │
-│  - User interface                                            │
-│  - Progress display                                          │
+│                         CLI (main.go)                       │
+│  - Command parsing                                          │
+│  - User interface                                           │
+│  - Progress display                                         │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                   Download Engine (engine)                   │
+│                   Download Engine (engine)                  │
 │  - Orchestrates the download process                        │
 │  - Manages peer connections                                 │
 │  - Coordinates piece downloading                            │
@@ -35,7 +35,7 @@ SmirnovTorrent is a lightweight BitTorrent client written in Go. The project fol
          │                   │                    │
          ▼                   ▼                    ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                   Parser (internal)                          │
+│                   Parser (internal)                         │
 │  - .torrent file parsing                                    │
 │  - Bencode serialization/deserialization                    │
 │  - Info hash calculation                                    │
@@ -43,7 +43,7 @@ SmirnovTorrent is a lightweight BitTorrent client written in Go. The project fol
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    Bencode (pkg)                             │
+│                    Bencode (pkg)                            │
 │  - Core bencode encoding/decoding                           │
 │  - Value types (Int, String, List, Dict)                    │
 └─────────────────────────────────────────────────────────────┘
