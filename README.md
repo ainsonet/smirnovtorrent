@@ -56,10 +56,10 @@ smirnovtorrent/
 - [x] Peer protocol (handshake, messages)
 - [x] Piece manager
 - [x] Download Engine (базовый)
+- [x] Multi-file torrent support
 - [ ] CLI интерфейс (полный)
 - [ ] Поддержка нескольких пиров (параллельная загрузка)
 - [ ] Seed-режим
-- [ ] Multi-file torrent support
 
 ## 📄 License
 

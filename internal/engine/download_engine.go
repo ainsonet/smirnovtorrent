@@ -223,6 +223,17 @@ func (e *DownloadEngine) requestPieces(conn *peer.PeerConnection) {
 				// Проверяем завершена ли загрузка
 				if e.pieceManager.IsComplete() {
 					log.Println("Download complete!")
+					
+					// Ждём немного чтобы все куски были сохранены
+					time.Sleep(1 * time.Second)
+					
+					// Собираем файлы
+					if err := e.assembleFiles(); err != nil {
+						log.Printf("Failed to assemble files: %v", err)
+					} else {
+						log.Printf("Files saved to: %s", e.outputDir)
+					}
+					
 					e.cancel()
 					return
 				}
@@ -289,16 +300,25 @@ func (e *DownloadEngine) Stop() {
 
 // assembleFiles собирает файлы из кусков
 func (e *DownloadEngine) assembleFiles() error {
-	data := e.pieceManager.AssembleFile()
-
-	// Определяем режим (single file или multi-file)
 	if len(e.torrent.Info.Files) == 1 {
 		// Single file mode
+		data := e.pieceManager.AssembleFile()
 		filePath := filepath.Join(e.outputDir, e.torrent.Info.Files[0].Path)
 		return os.WriteFile(filePath, data, 0644)
 	}
 
 	// Multi-file mode
-	// TODO: реализовать разбиение на файлы
-	return fmt.Errorf("multi-file torrent support not yet implemented")
+	for i := range e.torrent.Info.Files {
+		data, err := e.pieceManager.GetFileRange(i, e.torrent.Info.Files)
+		if err != nil {
+			return fmt.Errorf("failed to get file %d: %w", i, err)
+		}
+
+		filePath := filepath.Join(e.outputDir, e.torrent.Info.Files[i].Path)
+		if err := os.WriteFile(filePath, data, 0644); err != nil {
+			return fmt.Errorf("failed to write file %s: %w", filePath, err)
+		}
+	}
+
+	return nil
 }

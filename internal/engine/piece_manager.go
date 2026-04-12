@@ -4,6 +4,8 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"sync"
+
+	"smirnovtorrent/internal/parser"
 )
 
 // Piece представляет один кусок торрента
@@ -177,4 +179,54 @@ func (pm *PieceManager) AssembleFile() []byte {
 	}
 
 	return data
+}
+
+// GetFileRange возвращает данные для конкретного файла
+func (pm *PieceManager) GetFileRange(fileIndex int, files []parser.FileInfo) ([]byte, error) {
+	pm.mu.RLock()
+	defer pm.mu.RUnlock()
+
+	if fileIndex < 0 || fileIndex >= len(files) {
+		return nil, fmt.Errorf("invalid file index: %d", fileIndex)
+	}
+
+	file := files[fileIndex]
+	
+	// Вычисляем смещение файла в потоке данных
+	var offset int64 = 0
+	for i := 0; i < fileIndex; i++ {
+		offset += files[i].Size
+	}
+
+	// Находим куски которые содержат этот файл
+	startPiece := int(offset) / pm.pieceLength
+	endPiece := int(offset + file.Size - 1) / pm.pieceLength
+
+	var data []byte
+	for i := startPiece; i <= endPiece; i++ {
+		if i < len(pm.pieces) && pm.pieces[i].Complete {
+			pieceData := pm.pieces[i].Data
+			
+			// Вычисляем смещение внутри куска
+			pieceStart := i * pm.pieceLength
+			fileStartInPiece := offset - int64(pieceStart)
+			
+			if fileStartInPiece < 0 {
+				fileStartInPiece = 0
+			}
+			
+			// Вычисляем сколько данных нужно взять из этого куска
+			remaining := file.Size - int64(len(data))
+			available := int64(len(pieceData)) - fileStartInPiece
+			
+			take := remaining
+			if available < take {
+				take = available
+			}
+			
+			data = append(data, pieceData[fileStartInPiece:fileStartInPiece+take]...)
+		}
+	}
+
+	return data, nil
 }
