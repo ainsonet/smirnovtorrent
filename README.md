@@ -98,12 +98,13 @@ go test -tags e2e -v -timeout 5m ./cmd/smirnovtorrent
 | Tracker | ✅ Working | ✓ |
 | **DHT** | ✅ **Kademlia + Iterative** | ✓ |
 | **Magnet** | ✅ **Metadata (BEP 9)** | ✓ |
+| **PEX** | ✅ **BEP 11** | ✓ |
 | Peer | ✅ Working | ✓ |
 | **Web UI** | ✅ **v0.8.0** | - |
 
 **Total: 28+ tests passing**
 
-**Current version: v0.10.0**
+**Current version: v0.11.0**
 
 ## 📝 Roadmap
 
@@ -118,13 +119,14 @@ go test -tags e2e -v -timeout 5m ./cmd/smirnovtorrent
 - [x] Magnet links (parse)
 - [x] DHT bootstrap
 - [x] Kademlia routing table (v0.9.0)
-- [x] **DHT iterative lookup** (v0.10.0)
-- [x] **Magnet metadata download** (BEP 9)
+- [x] DHT iterative lookup (v0.10.0)
+- [x] Magnet metadata download (BEP 9)
+- [x] **PEX (Peer Exchange)** (v0.11.0)
 - [x] BitTorrent encryption
 - [x] Rate limiting
 - [x] Resume support
 - [x] **Web UI** (v0.8.0)
-- [ ] PEX (Peer Exchange)
+- [ ] Encryption integration
 - [ ] Desktop GUI (Tauri)
 
 ## 📄 License
