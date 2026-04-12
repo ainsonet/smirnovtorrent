@@ -9,7 +9,7 @@ import (
 
 func TestNewSeedManager(t *testing.T) {
 	pieceLength := 16384
-	totalSize := 16384 * 10
+	totalSize := int64(16384 * 10)
 	numPieces := 10
 
 	pieceHashes := make([]byte, numPieces*20)
@@ -35,7 +35,7 @@ func TestNewSeedManager(t *testing.T) {
 
 func TestSeedStats(t *testing.T) {
 	pieceLength := 16384
-	totalSize := 16384 * 5
+	totalSize := int64(16384 * 5)
 	numPieces := 5
 
 	pieceHashes := make([]byte, numPieces*20)
@@ -67,7 +67,7 @@ func TestSeedStats(t *testing.T) {
 
 func TestHandleRequest_InvalidPayload(t *testing.T) {
 	pieceLength := 16384
-	totalSize := 16384
+	totalSize := int64(16384)
 	numPieces := 1
 
 	pieceHashes := make([]byte, numPieces*20)
@@ -92,7 +92,7 @@ func TestHandleRequest_InvalidPayload(t *testing.T) {
 
 func TestHandleRequest_PieceNotComplete(t *testing.T) {
 	pieceLength := 16384
-	totalSize := 16384
+	totalSize := int64(16384)
 	numPieces := 1
 
 	pieceHashes := make([]byte, numPieces*20)
@@ -140,7 +140,7 @@ func TestBitfieldGeneration(t *testing.T) {
 
 func TestCleanupInactivePeers(t *testing.T) {
 	pieceLength := 16384
-	totalSize := 16384
+	totalSize := int64(16384)
 	numPieces := 1
 
 	pieceHashes := make([]byte, numPieces*20)

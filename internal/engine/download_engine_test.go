@@ -52,7 +52,7 @@ func TestNewDownloadEngine_CustomOutputDir(t *testing.T) {
 
 func TestGetNextPiece(t *testing.T) {
 	pieceLength := 16384
-	totalSize := 16384 * 5
+	totalSize := int64(16384 * 5)
 	numPieces := 5
 
 	pieceHashes := make([]byte, numPieces*20)

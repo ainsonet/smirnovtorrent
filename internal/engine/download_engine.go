@@ -2,10 +2,8 @@ package engine
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"log"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"sync"
@@ -56,10 +54,6 @@ func NewDownloadEngine(torrent *parser.Torrent, outputDir string) *DownloadEngin
 		outputDir = torrent.Info.Name
 	}
 
-	// Генерируем peer ID
-	peerID := peer.NewPeerID()
-	peerIDStr := string(peerID[:])
-
 	return &DownloadEngine{
 		torrent:    torrent,
 		outputDir:  outputDir,
@@ -91,7 +85,7 @@ func (e *DownloadEngine) SetEncryptionKey(key []byte) {
 
 // EnableResume включает продолжение загрузки
 func (e *DownloadEngine) EnableResume() {
-	e.resumeManager = NewResumeManager(e.torrent.InfoHash, e.outputDir)
+	e.resumeManager = NewResumeManager(e.torrent.Info.InfoHash, e.outputDir)
 	
 	// Загружаем сохранённый прогресс
 	if err := e.resumeManager.Load(); err != nil {
@@ -356,25 +350,6 @@ func (e *DownloadEngine) downloadLoop() error {
 				e.pieceManager.TotalPieces(),
 				e.peerPool.GetActivePeerCount(),
 				downloadSpeed/1024)
-		}
-	}
-}
-
-// downloadLoop основной цикл загрузки
-func (e *DownloadEngine) downloadLoop() error {
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-e.ctx.Done():
-			return nil
-		case <-ticker.C:
-			e.updateStatus()
-			log.Printf("Progress: %.1f%% (%d/%d pieces)",
-				e.pieceManager.Progress(),
-				e.pieceManager.CompletePieces(),
-				e.pieceManager.TotalPieces())
 		}
 	}
 }

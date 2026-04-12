@@ -2,12 +2,13 @@ package engine
 
 import (
 	"crypto/sha1"
+	"fmt"
 	"testing"
 )
 
 func TestNewPieceManager(t *testing.T) {
 	pieceLength := 16384
-	totalSize := 1024 * 1024 // 1MB
+	totalSize := int64(1024 * 1024) // 1MB
 	numPieces := 64
 
 	// Создаём тестовые хеши
@@ -30,7 +31,7 @@ func TestNewPieceManager(t *testing.T) {
 
 func TestMarkPieceComplete(t *testing.T) {
 	pieceLength := 16384
-	totalSize := 16384 * 2 // 2 pieces
+	totalSize := int64(16384 * 2) // 2 pieces
 	numPieces := 2
 
 	pieceHashes := make([]byte, numPieces*20)
@@ -56,7 +57,7 @@ func TestMarkPieceComplete(t *testing.T) {
 
 func TestMarkPieceComplete_HashMismatch(t *testing.T) {
 	pieceLength := 16384
-	totalSize := 16384
+	totalSize := int64(16384)
 	numPieces := 1
 
 	pieceHashes := make([]byte, numPieces*20)
@@ -76,7 +77,7 @@ func TestMarkPieceComplete_HashMismatch(t *testing.T) {
 
 func TestProgress(t *testing.T) {
 	pieceLength := 16384
-	totalSize := 16384 * 4 // 4 pieces
+	totalSize := int64(16384 * 4) // 4 pieces
 	numPieces := 4
 
 	pieceHashes := make([]byte, numPieces*20)
@@ -100,44 +101,9 @@ func TestProgress(t *testing.T) {
 	}
 }
 
-func TestGetNextPiece(t *testing.T) {
-	pieceLength := 16384
-	totalSize := 16384 * 3
-	numPieces := 3
-
-	pieceHashes := make([]byte, numPieces*20)
-	for i := 0; i < numPieces; i++ {
-		data := []byte(fmt.Sprintf("piece%d", i))
-		hash := sha1.Sum(data)
-		copy(pieceHashes[i*20:(i+1)*20], hash[:])
-	}
-
-	pm := NewPieceManager(pieceLength, totalSize, pieceHashes)
-
-	// Получаем кусочки
-	piece1 := pm.GetNextPiece()
-	if piece1 == nil || piece1.Index != 0 {
-		t.Error("Expected first piece")
-	}
-
-	piece2 := pm.GetNextPiece()
-	if piece2 == nil || piece2.Index != 1 {
-		t.Error("Expected second piece")
-	}
-
-	// Отмечаем первый кусок как завершённый
-	pm.MarkPieceComplete(0, []byte("piece0"))
-
-	// Следующий кусок должен быть 2 (1 уже запрошен)
-	piece3 := pm.GetNextPiece()
-	if piece3 == nil || piece3.Index != 2 {
-		t.Error("Expected third piece")
-	}
-}
-
 func TestIsComplete(t *testing.T) {
 	pieceLength := 16384
-	totalSize := 16384 * 2
+	totalSize := int64(16384 * 2)
 	numPieces := 2
 
 	pieceHashes := make([]byte, numPieces*20)
