@@ -1,6 +1,6 @@
 # SmirnovTorrent
 
-![Logo](logo.png)
+<img src="https://raw.githubusercontent.com/ainsonet/smirnovtorrent/master/logo.png" alt="SmirnovTorrent Logo" width="200"/>
 
 🌊 Легковесный BitTorrent клиент на Go
 
