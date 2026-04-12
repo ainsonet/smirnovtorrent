@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"smirnovtorrent/internal/dht"
 	"smirnovtorrent/internal/encryption"
 	"smirnovtorrent/internal/parser"
 	"smirnovtorrent/internal/peer"
@@ -24,12 +25,14 @@ type DownloadEngine struct {
 	rarestMgr    *RarestFirstManager
 	seedManager  *SeedManager
 	tracker      *tracker.Tracker
+	dhtClient    *dht.DHTClient
 	cancel       context.CancelFunc
 	ctx          context.Context
 	status       DownloadStatus
 	statusMu     sync.RWMutex
 	numWorkers   int
 	seedMode     bool
+	useDHT       bool
 	progressCallback func(float64, int, int, int, float64)
 	
 	// Новые функции
@@ -100,10 +103,20 @@ func (e *DownloadEngine) EnableResume() {
 	e.resumeManager.StartAutoSave(30 * time.Second)
 }
 
+// EnableDHT включает DHT для поиска пиров
+func (e *DownloadEngine) EnableDHT() {
+	e.useDHT = true
+}
+
 // Start начинает загрузку
 func (e *DownloadEngine) Start() error {
 	e.ctx, e.cancel = context.WithCancel(context.Background())
-	defer e.cancel()
+	defer func() {
+		// Очищаем DHT клиент при завершении
+		if e.dhtClient != nil {
+			e.dhtClient.Stop()
+		}
+	}()
 
 	// Инициализируем PieceManager
 	e.pieceManager = NewPieceManager(
@@ -120,47 +133,76 @@ func (e *DownloadEngine) Start() error {
 	// Создаём менеджер Rarest-first
 	e.rarestMgr = NewRarestFirstManager(e.pieceManager, e.peerPool)
 
-	// Создаём трекер
-	if e.torrent.Announce == "" {
-		return fmt.Errorf("no tracker URL available")
-	}
-
-	var err error
-	e.tracker, err = tracker.ParsePeerURL(e.torrent.Announce)
-	if err != nil {
-		return fmt.Errorf("failed to create tracker: %w", err)
-	}
-
 	log.Printf("Starting download: %s", e.torrent.Info.Name)
 	log.Printf("Total size: %d bytes", e.torrent.TotalSize())
 	log.Printf("Pieces: %d", e.pieceManager.TotalPieces())
 	log.Printf("Workers: %d", e.numWorkers)
+	log.Printf("DHT: %v", e.useDHT)
 
 	// Создаём директорию для загрузки
 	if err := os.MkdirAll(e.outputDir, 0755); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
-	// Получаем список пиров от трекера
-	peers, err := e.tracker.GetPeers(
-		e.torrent.Info.InfoHash,
-		peerIDStr,
-		6881,
-	)
-	if err != nil {
-		log.Printf("Warning: failed to get peers from tracker: %v", err)
-	} else {
-		log.Printf("Got %d peers from tracker", len(peers))
+	// Получаем пиры от трекера если он есть
+	if e.torrent.Announce != "" {
+		var err error
+		e.tracker, err = tracker.ParsePeerURL(e.torrent.Announce)
+		if err != nil {
+			log.Printf("Warning: failed to create tracker: %v", err)
+		} else {
+			peers, err := e.tracker.GetPeers(
+				e.torrent.Info.InfoHash,
+				peerIDStr,
+				6881,
+			)
+			if err != nil {
+				log.Printf("Warning: failed to get peers from tracker: %v", err)
+			} else {
+				log.Printf("Got %d peers from tracker", len(peers))
+				// Добавляем пиров от трекера
+				for _, peerAddr := range peers {
+					go e.peerPool.AddPeer(peerAddr)
+				}
+			}
+		}
 	}
 
-	// Подключаемся к пирам (до 20 сразу)
-	maxInitialPeers := 20
-	if len(peers) < maxInitialPeers {
-		maxInitialPeers = len(peers)
-	}
-	
-	for i := 0; i < maxInitialPeers; i++ {
-		go e.peerPool.AddPeer(peers[i])
+	// Запускаем DHT если включён
+	if e.useDHT {
+		log.Println("Starting DHT client...")
+		var err error
+		e.dhtClient, err = dht.NewDHTClient(nil, 6882)
+		if err != nil {
+			log.Printf("Warning: failed to start DHT: %v", err)
+		} else {
+			if err := e.dhtClient.Start(); err != nil {
+				log.Printf("Warning: DHT start failed: %v", err)
+			} else {
+				// Ищем пиры через DHT
+				go func() {
+					peers, err := e.dhtClient.FindPeer(e.torrent.Info.InfoHash)
+					if err != nil {
+						log.Printf("DHT: failed to find peers: %v", err)
+						return
+					}
+					log.Printf("DHT: found %d peers", len(peers))
+					for _, peerAddr := range peers {
+						// Парсим адрес пира (format: "ip:port")
+						ip, port, err := dht.ParsePeerAddress(peerAddr)
+						if err != nil {
+							log.Printf("DHT: failed to parse peer address %s: %v", peerAddr, err)
+							continue
+						}
+						peerInfo := tracker.PeerInfo{
+							IP:   ip,
+							Port: port,
+						}
+						go e.peerPool.AddPeer(peerInfo)
+					}
+				}()
+			}
+		}
 	}
 
 	// Ждём немного чтобы пиры подключились
@@ -392,6 +434,10 @@ func (e *DownloadEngine) Stop() {
 
 	if e.seedManager != nil {
 		e.seedManager.Stop()
+	}
+
+	if e.dhtClient != nil {
+		e.dhtClient.Stop()
 	}
 }
 

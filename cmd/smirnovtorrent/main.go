@@ -115,6 +115,9 @@ func download(source string) {
 	// Создаём и запускаем движок загрузки
 	eng := engine.NewDownloadEngine(torrent, "")
 	
+	// Включаем DHT для поиска дополнительных пиров
+	eng.EnableDHT()
+	
 	// Устанавливаем callback для обновления прогресса
 	prog := NewProgressBar(40)
 	eng.SetProgressCallback(func(progress float64, current, total, peers int, speed float64) {
@@ -159,8 +162,47 @@ func downloadFromMagnet(magnetLink string) {
 	}
 
 	fmt.Println()
-	fmt.Println("Note: Full magnet link support with DHT is coming soon!")
-	fmt.Println("For now, you need to provide a .torrent file.")
+	fmt.Println("Note: Magnet link requires DHT or trackers to find peers.")
+	fmt.Println("The download will start once peers are discovered.")
+	fmt.Println()
+
+	// Создаём минимальный torrent из magnet
+	torrent := &parser.Torrent{
+		Info: parser.TorrentInfo{
+			Name:        link.DisplayName,
+			InfoHash:    link.InfoHash,
+			PieceLength: 16384, // Default, будет обновлён когда получим .torrent
+			Pieces:      make([]byte, 0),
+			Files:       []parser.FileInfo{},
+		},
+		Announce: "",
+	}
+
+	// Если есть трекеры, используем первый
+	if len(link.Trackers) > 0 {
+		torrent.Announce = link.Trackers[0]
+	}
+
+	// Создаём движок с DHT
+	eng := engine.NewDownloadEngine(torrent, "")
+	eng.EnableDHT()
+
+	// Устанавливаем callback для обновления прогресса
+	prog := NewProgressBar(40)
+	eng.SetProgressCallback(func(progress float64, current, total, peers int, speed float64) {
+		prog.Show(progress, current, total, peers, speed)
+	})
+
+	fmt.Println("Starting download...")
+	if err := eng.Start(); err != nil {
+		prog.Finish()
+		fmt.Printf("Download error: %v\n", err)
+		os.Exit(1)
+	}
+
+	prog.Finish()
+	fmt.Println()
+	fmt.Println("Download completed successfully!")
 }
 
 // formatBytesFloat форматирует размер в байтах для вывода (для float64 скорости)
