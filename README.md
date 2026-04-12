@@ -61,9 +61,10 @@ smirnovtorrent/
 - [x] Rarest-first алгоритм выбора кусков
 - [x] Peer pool management
 - [x] Seed-режим (раздача)
+- [x] Magnet links (парсинг)
 - [ ] CLI интерфейс (полный с прогресс-баром)
-- [ ] DHT support
-- [ ] Magnet links
+- [ ] DHT support (полная реализация)
+- [ ] BitTorrent encryption
 
 ## 📄 License
 

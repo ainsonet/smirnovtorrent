@@ -3,12 +3,14 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"smirnovtorrent/internal/engine"
+	"smirnovtorrent/internal/magnet"
 	"smirnovtorrent/internal/parser"
 )
 
-const version = "0.4.0"
+const version = "0.5.0"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -86,8 +88,9 @@ func showInfo(path string) {
 }
 
 func download(source string) {
-	if len(source) > 8 && source[:8] == "magnet:?" {
-		fmt.Println("Magnet link support coming soon!")
+	// Проверяем это magnet ссылка
+	if magnet.IsMagnetLink(source) {
+		downloadFromMagnet(source)
 		return
 	}
 
@@ -140,6 +143,37 @@ func download(source string) {
 	close(done)
 	fmt.Println()
 	fmt.Println("Download completed successfully!")
+}
+
+// downloadFromMagnet загружает из magnet ссылки
+func downloadFromMagnet(magnetLink string) {
+	fmt.Println("Magnet link download")
+	fmt.Println("====================")
+
+	link, err := magnet.Parse(magnetLink)
+	if err != nil {
+		fmt.Printf("Error parsing magnet link: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Info Hash: %s\n", link.InfoHash)
+	if link.DisplayName != "" {
+		fmt.Printf("Name: %s\n", link.DisplayName)
+	}
+	fmt.Printf("Trackers: %d\n", len(link.Trackers))
+	for i, tracker := range link.Trackers {
+		fmt.Printf("  %d. %s\n", i+1, tracker)
+	}
+	if link.DHT {
+		fmt.Println("DHT: Enabled")
+	}
+	if link.PEX {
+		fmt.Println("PEX: Enabled")
+	}
+
+	fmt.Println()
+	fmt.Println("Note: Full magnet link support with DHT is coming soon!")
+	fmt.Println("For now, you need to provide a .torrent file.")
 }
 
 // formatBytes форматирует размер в байтах для вывода
