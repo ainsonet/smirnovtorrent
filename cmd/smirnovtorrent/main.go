@@ -104,19 +104,55 @@ func download(source string) {
 	}
 
 	fmt.Printf("Starting download: %s\n", torrent.Info.Name)
-	fmt.Printf("Size: %d bytes\n", torrent.TotalSize())
+	fmt.Printf("Size: %d bytes (%s)\n", torrent.TotalSize(), formatBytes(float64(torrent.TotalSize())))
 	fmt.Printf("Pieces: %d\n", len(torrent.Info.Pieces)/20)
+	fmt.Printf("Piece size: %s\n", torrent.PieceSize())
 	fmt.Printf("Tracker: %s\n", torrent.Announce)
 	fmt.Println()
 
 	// Создаём и запускаем движок загрузки
 	eng := engine.NewDownloadEngine(torrent, "")
 	
+	// Запускаем обновление прогресса в отдельной горутине
+	done := make(chan bool)
+	prog := NewProgressBar(40)
+
+	go func() {
+		for {
+			select {
+			case <-done:
+				prog.Finish()
+				return
+			default:
+				// Тут можно получать прогресс от движка
+				// Пока заглушка
+				time.Sleep(1 * time.Second)
+			}
+		}
+	}()
+	
 	if err := eng.Start(); err != nil {
+		close(done)
 		fmt.Printf("Download error: %v\n", err)
 		os.Exit(1)
 	}
 
+	close(done)
 	fmt.Println()
 	fmt.Println("Download completed successfully!")
+}
+
+// formatBytes форматирует размер в байтах для вывода
+func formatBytes(bytes float64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%.1f B", bytes)
+	}
+	div, exp := float64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	suffixes := []string{"KB", "MB", "GB", "TB"}
+	return fmt.Sprintf("%.1f %s", bytes/div, suffixes[exp])
 }
