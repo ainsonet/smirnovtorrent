@@ -19,11 +19,17 @@ go build -o smirnovtorrent.exe ./cmd/smirnovtorrent
 ## 💻 Использование
 
 ```bash
-# Загрузка торрента
+# Показать информацию о торренте
+smirnovtorrent info example.torrent
+
+# Загрузка торрента (в разработке)
 smirnovtorrent download example.torrent
 
-# Загрузка с magnet ссылки
+# Загрузка с magnet ссылки (в разработке)
 smirnovtorrent download "magnet:?xt=urn:btih:..."
+
+# Показать версию
+smirnovtorrent version
 ```
 
 ## 🏗️ Структура проекта
@@ -44,14 +50,15 @@ smirnovtorrent/
 ## 📝 План разработки
 
 - [x] Структура проекта
-- [ ] Парсер Bencode
-- [ ] Парсер .torrent файлов
-- [ ] Работа с трекерами (HTTP)
-- [ ] Peer protocol (handshake, messages)
-- [ ] Piece manager
-- [ ] CLI интерфейс
+- [x] Парсер Bencode
+- [x] Парсер .torrent файлов
+- [x] Работа с трекерами (HTTP)
+- [x] Peer protocol (handshake, messages)
+- [x] Piece manager
+- [ ] CLI интерфейс (базовый)
 - [ ] Поддержка нескольких пиров
 - [ ] Seed-режим
+- [ ] Полная реализация загрузки
 
 ## 📄 License
 
