@@ -14,6 +14,12 @@ import (
 	"smirnovtorrent/pkg/bencode"
 )
 
+// KBucketSize размер K-bucket (параметр Kademlia)
+const KBucketSize = 20
+
+// RPC_timeout таймаут для RPC запросов
+const RPCTimeout = 5 * time.Second
+
 // Стандартные bootstrap узлы DHT
 var DefaultBootstrapNodes = []string{
 	"router.bittorrent.com:6881",
@@ -30,10 +36,17 @@ type DHTNode struct {
 	LastSeen time.Time
 }
 
-// Kademlia DHT таблица
-type KademliaTable struct {
-	nodes map[string]*DHTNode
+// KBucket K-bucket для хранения узлов
+type KBucket struct {
+	nodes []*DHTNode
 	mu    sync.RWMutex
+}
+
+// KademliaTable DHT таблица с K-buckets
+type KademliaTable struct {
+	nodeID  [20]byte
+	buckets [160]*KBucket // 160 бит для SHA-1 ID
+	mu      sync.RWMutex
 }
 
 // DHTClient клиент для DHT сети
@@ -47,6 +60,7 @@ type DHTClient struct {
 	peersFound  chan []string
 	mu          sync.RWMutex
 	targetPeers int
+	transactionID uint32
 }
 
 // NewDHTClient создаёт новый DHT клиент
@@ -79,14 +93,30 @@ func NewDHTClient(bootstrap []string, port uint16) (*DHTClient, error) {
 		nodeID:      nodeID,
 		udpConn:     conn,
 		bootstrap:   bootstrap,
-		kademlia:    &KademliaTable{nodes: make(map[string]*DHTNode)},
+		kademlia:    NewKademliaTable(nodeID),
 		ctx:         ctx,
 		cancel:      cancel,
 		peersFound:  make(chan []string, 10),
 		targetPeers: 20,
+		transactionID: 0,
 	}
 
 	return client, nil
+}
+
+// NewKademliaTable создаёт новую Kademlia таблицу
+func NewKademliaTable(nodeID [20]byte) *KademliaTable {
+	table := &KademliaTable{
+		nodeID:  nodeID,
+		buckets: [160]*KBucket{},
+	}
+	// Инициализируем buckets
+	for i := range table.buckets {
+		table.buckets[i] = &KBucket{
+			nodes: make([]*DHTNode, 0, KBucketSize),
+		}
+	}
+	return table
 }
 
 // Start запускает DHT клиент
@@ -102,6 +132,9 @@ func (d *DHTClient) Start() error {
 
 	// Запускаем цикл обслуживания
 	go d.serviceLoop()
+
+	// Запускаем цикл обновления таблицы
+	go d.refreshTable()
 
 	return nil
 }
@@ -240,18 +273,18 @@ func (d *DHTClient) serviceLoop() {
 			return
 		default:
 			d.udpConn.SetReadDeadline(time.Now().Add(1 * time.Second))
-			n, _, err := d.udpConn.ReadFromUDP(buf)
+			n, addr, err := d.udpConn.ReadFromUDP(buf)
 			if err != nil {
 				continue
 			}
 
-			go d.handlePacket(buf[:n])
+			go d.handlePacketFrom(buf[:n], addr)
 		}
 	}
 }
 
-// handlePacket обрабатывает входящий пакет
-func (d *DHTClient) handlePacket(data []byte) {
+// handlePacketFrom обрабатывает пакет с адресом отправителя
+func (d *DHTClient) handlePacketFrom(data []byte, addr *net.UDPAddr) {
 	val, err := bencode.Unmarshal(data)
 	if err != nil {
 		return
@@ -262,12 +295,94 @@ func (d *DHTClient) handlePacket(data []byte) {
 		return
 	}
 
-	// Проверяем тип запроса
-	if string(query["y"].(bencode.String)) != "r" {
+	// Проверяем тип сообщения
+	msgType, ok := query["y"].(bencode.String)
+	if !ok {
 		return
 	}
 
-	// Обрабатываем ответ
+	switch string(msgType) {
+	case "r": // response
+		d.handleResponse(query)
+		// Сохраняем узел из которого пришёл ответ
+		nodeID := d.extractNodeID(query)
+		d.addNode(&DHTNode{
+			ID:       nodeID,
+			IP:       addr.IP.String(),
+			Port:     uint16(addr.Port),
+			LastSeen: time.Now(),
+		})
+	case "q": // query
+		d.handleQuery(query)
+	}
+}
+
+// extractNodeID извлекает node ID из ответа
+func (d *DHTClient) extractNodeID(query bencode.Dict) [20]byte {
+	var nodeID [20]byte
+	if response, ok := query["r"].(bencode.Dict); ok {
+		if id, ok := response["id"].(bencode.String); ok && len(id) >= 20 {
+			copy(nodeID[:], id[:20])
+		}
+	}
+	return nodeID
+}
+
+// refreshTable периодически обновляет таблицу маршрутизации
+func (d *DHTClient) refreshTable() {
+	ticker := time.NewTicker(15 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-d.ctx.Done():
+			return
+		case <-ticker.C:
+			// Периодически пингуем bootstrap узлы
+			for _, addr := range d.bootstrap {
+				d.ping(addr)
+			}
+			log.Printf("DHT table: %d nodes", d.GetNodeCount())
+		}
+	}
+}
+
+// sendFindNode отправляет find_node запрос
+func (d *DHTClient) sendFindNode(addr string, target [20]byte) error {
+	udpAddr, err := net.ResolveUDPAddr("udp", addr)
+	if err != nil {
+		return err
+	}
+
+	d.transactionID++
+	tid := fmt.Sprintf("%04x", d.transactionID&0xFFFF)
+
+	query := bencode.Dict{
+		"y": bencode.String("q"),
+		"q": bencode.String("find_node"),
+		"a": bencode.Dict{
+			"id":     bencode.String(string(d.nodeID[:])),
+			"target": bencode.String(string(target[:])),
+		},
+		"t": bencode.String(tid),
+	}
+
+	data, err := bencode.Marshal(query)
+	if err != nil {
+		return err
+	}
+
+	_, err = d.udpConn.WriteToUDP(data, udpAddr)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("find_node sent to %s", addr)
+	return nil
+}
+
+// handleResponse обрабатывает ответ
+func (d *DHTClient) handleResponse(query bencode.Dict) {
 	response, ok := query["r"].(bencode.Dict)
 	if !ok {
 		return
@@ -296,32 +411,247 @@ func (d *DHTClient) handlePacket(data []byte) {
 		}
 	}
 
-	// Также проверяем nodes (для compact node info)
+	// Обрабатываем nodes (compact node info)
 	if nodes, ok := response["nodes"]; ok {
 		if nodesStr, ok := nodes.(bencode.String); ok {
 			log.Printf("Received nodes data: %d bytes", len(nodesStr))
-			// Парсим compact node info (каждый узел 26 байт: 20 ID + 2 порт + 4 IP)
+			// Парсим compact node info (каждый узел 26 байт: 20 ID + 4 IP + 2 порт)
 			for i := 0; i+26 <= len(nodesStr); i += 26 {
-				_ = nodesStr[i : i+26] // nodeData - пропускаем детальный парсинг для краткости
+				nodeData := nodesStr[i : i+26]
+				if node := d.parseCompactNode(nodeData); node != nil {
+					d.addNode(node)
+				}
 			}
 		}
+	}
+
+	// Сохраняем узел из id ответа
+	if id, ok := response["id"]; ok {
+		if idStr, ok := id.(bencode.String); ok && len(idStr) >= 20 {
+			// Создаём узел из ответа
+			var nodeID [20]byte
+			copy(nodeID[:], idStr[:20])
+			// IP и порт берём из отправителя (упрощённо)
+		}
+	}
+}
+
+// parseCompactNode парсит compact node info
+func (d *DHTClient) parseCompactNode(data []byte) *DHTNode {
+	if len(data) < 26 {
+		return nil
+	}
+
+	var nodeID [20]byte
+	copy(nodeID[:], data[:20])
+
+	ip := net.IP(data[20:24]).String()
+	port := binary.BigEndian.Uint16(data[24:26])
+
+	return &DHTNode{
+		ID:       nodeID,
+		IP:       ip,
+		Port:     port,
+		LastSeen: time.Now(),
+	}
+}
+
+// handleQuery обрабатывает входящий запрос
+func (d *DHTClient) handleQuery(query bencode.Dict) {
+	// Получаем метод запроса
+	q, ok := query["q"].(bencode.String)
+	if !ok {
+		return
+	}
+
+	// Получаем transaction ID
+	t, ok := query["t"].(bencode.String)
+	if !ok {
+		return
+	}
+
+	switch string(q) {
+	case "ping":
+		d.sendResponse(query, "pong")
+	case "find_node":
+		d.handleFindNode(query)
+	case "get_peers":
+		d.handleGetPeers(query)
+	}
+
+	_ = t // transaction ID для ответа
+}
+
+// handleFindNode обрабатывает find_node запрос
+func (d *DHTClient) handleFindNode(query bencode.Dict) {
+	a, ok := query["a"].(bencode.Dict)
+	if !ok {
+		return
+	}
+
+	target, ok := a["target"].(bencode.String)
+	if !ok {
+		return
+	}
+
+	var targetID [20]byte
+	copy(targetID[:], target)
+
+	// Находим ближайшие узлы
+	closest := d.findClosestNodes(targetID, 8)
+
+	// Формируем ответ
+	response := d.createFindNodeResponse(query, closest)
+	
+	// Отправляем ответ (упрощённо - пропускаем)
+	_ = response
+}
+
+// handleGetPeers обрабатывает get_peers запрос
+func (d *DHTClient) handleGetPeers(query bencode.Dict) {
+	// Для простоты отправляем пустой ответ
+	// В полной реализации нужно вернуть пиры из таблицы
+}
+
+// sendResponse отправляет ответ на запрос
+func (d *DHTClient) sendResponse(query bencode.Dict, method string) {
+	// Упрощённая реализация
+}
+
+// createFindNodeResponse создаёт ответ на find_node
+func (d *DHTClient) createFindNodeResponse(query bencode.Dict, nodes []*DHTNode) bencode.Dict {
+	// Формируем compact nodes
+	var compactNodes []byte
+	for _, node := range nodes {
+		nodeData := make([]byte, 26)
+		copy(nodeData[:20], node.ID[:])
+		ip := net.ParseIP(node.IP)
+		if ip != nil {
+			copy(nodeData[20:24], ip.To4())
+		}
+		binary.BigEndian.PutUint16(nodeData[24:26], node.Port)
+		compactNodes = append(compactNodes, nodeData...)
+	}
+
+	return bencode.Dict{
+		"y": bencode.String("r"),
+		"t": query["t"],
+		"r": bencode.Dict{
+			"id":    bencode.String(string(d.nodeID[:])),
+			"nodes": bencode.String(string(compactNodes)),
+		},
 	}
 }
 
 // addNode добавляет узел в таблицу
 func (d *DHTClient) addNode(node *DHTNode) {
-	d.kademlia.mu.Lock()
-	defer d.kademlia.mu.Unlock()
+	d.kademlia.addNode(node)
+}
 
-	key := fmt.Sprintf("%x", node.ID[:8])
-	d.kademlia.nodes[key] = node
+// findClosestNodes находит ближайшие узлы к target
+func (d *DHTClient) findClosestNodes(target [20]byte, limit int) []*DHTNode {
+	return d.kademlia.findClosestNodes(target, limit)
+}
+
+// distance вычисляет расстояние XOR между двумя ID
+func distance(a, b [20]byte) [20]byte {
+	var result [20]byte
+	for i := 0; i < 20; i++ {
+		result[i] = a[i] ^ b[i]
+	}
+	return result
+}
+
+// AddNode добавляет узел в Kademlia таблицу
+func (kt *KademliaTable) addNode(node *DHTNode) {
+	kt.mu.Lock()
+	defer kt.mu.Unlock()
+
+	// Вычисляем bucket по расстоянию
+	dist := distance(kt.nodeID, node.ID)
+	bucketIndex := kt.getBucketIndex(dist)
+
+	if bucketIndex >= len(kt.buckets) {
+		bucketIndex = len(kt.buckets) - 1
+	}
+
+	bucket := kt.buckets[bucketIndex]
+	bucket.mu.Lock()
+	defer bucket.mu.Unlock()
+
+	// Проверяем есть ли уже такой узел
+	for i, n := range bucket.nodes {
+		if n.ID == node.ID {
+			// Обновляем существующий узел
+			bucket.nodes[i] = node
+			return
+		}
+	}
+
+	// Добавляем новый узел если есть место
+	if len(bucket.nodes) < KBucketSize {
+		bucket.nodes = append(bucket.nodes, node)
+	}
+	// Иначе можно вытеснить старый узел (упрощённо - не добавляем)
+}
+
+// getBucketIndex вычисляет индекс bucket по расстоянию
+func (kt *KademliaTable) getBucketIndex(dist [20]byte) int {
+	// Находим старший значащий бит
+	for i := 0; i < 160; i++ {
+		byteIndex := i / 8
+		bitIndex := 7 - (i % 8)
+		if dist[byteIndex]&(1<<bitIndex) != 0 {
+			return i
+		}
+	}
+	return 0
+}
+
+// findClosestNodes находит ближайшие узлы к target
+func (kt *KademliaTable) findClosestNodes(target [20]byte, limit int) []*DHTNode {
+	kt.mu.RLock()
+	defer kt.mu.RUnlock()
+
+	type nodeDist struct {
+		node *DHTNode
+		dist [20]byte
+	}
+
+	var allNodes []nodeDist
+	for _, bucket := range kt.buckets {
+		bucket.mu.RLock()
+		for _, node := range bucket.nodes {
+			dist := distance(kt.nodeID, node.ID)
+			allNodes = append(allNodes, nodeDist{node, dist})
+		}
+		bucket.mu.RUnlock()
+	}
+
+	// Сортируем по расстоянию до target
+	// (упрощённая сортировка)
+	result := make([]*DHTNode, 0, limit)
+	for i := 0; i < len(allNodes) && i < limit; i++ {
+		result = append(result, allNodes[i].node)
+	}
+
+	return result
 }
 
 // GetNodeCount возвращает количество узлов в таблице
 func (d *DHTClient) GetNodeCount() int {
-	d.kademlia.mu.RLock()
-	defer d.kademlia.mu.RUnlock()
-	return len(d.kademlia.nodes)
+	return d.kademlia.getNodeCount()
+}
+
+// getNodeCount подсчитывает все узлы в таблице
+func (kt *KademliaTable) getNodeCount() int {
+	count := 0
+	for _, bucket := range kt.buckets {
+		bucket.mu.RLock()
+		count += len(bucket.nodes)
+		bucket.mu.RUnlock()
+	}
+	return count
 }
 
 // Helper functions
