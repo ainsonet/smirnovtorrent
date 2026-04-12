@@ -37,12 +37,24 @@ smirnovtorrent download example.torrent
 # Download from magnet link (experimental)
 smirnovtorrent download "magnet:?xt=urn:btih:..."
 
+# Start Web UI (default port 8080)
+smirnovtorrent webui [port]
+
 # Show version
 smirnovtorrent version
 
 # Show help
 smirnovtorrent help
 ```
+
+### Web Interface
+
+Open http://localhost:8080 in your browser to access the Web UI with:
+- Real-time progress monitoring
+- Download/upload statistics
+- Active peers count
+- Start/stop controls
+- Activity log
 
 ## 🏗️ Project Structure
 
@@ -81,11 +93,13 @@ go test -tags e2e -v -timeout 5m ./cmd/smirnovtorrent
 | Module | Status | Tests |
 |--------|--------|-------|
 | Parser | ✅ Complete | 6/6 |
-| Engine | ✅ Working | 16/16 |
+| Engine | ✅ Complete | 16/16 |
+| Encryption | ✅ Complete | 6/6 |
 | Tracker | ✅ Working | ✓ |
-| DHT | 🚧 Experimental | ✓ |
-| Encryption | ✅ Working | 6/6 |
+| DHT | ✅ Basic | ✓ |
 | Magnet | ✅ Parsing | ✓ |
+| Peer | ✅ Working | ✓ |
+| **Web UI** | ✅ **v0.8.0** | - |
 
 **Total: 28+ tests passing**
 
@@ -104,9 +118,10 @@ go test -tags e2e -v -timeout 5m ./cmd/smirnovtorrent
 - [x] BitTorrent encryption
 - [x] Rate limiting
 - [x] Resume support
-- [ ] Full DHT implementation
-- [ ] GUI (WebView/Tauri)
-- [ ] Web UI
+- [x] **Web UI** (v0.8.0)
+- [ ] Full DHT implementation (Kademlia)
+- [ ] PEX (Peer Exchange)
+- [ ] Desktop GUI (Tauri)
 
 ## 📄 License
 
