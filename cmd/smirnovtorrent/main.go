@@ -10,7 +10,7 @@ import (
 	"smirnovtorrent/internal/parser"
 )
 
-const version = "0.12.0"
+const version = "0.13.0"
 
 func main() {
 	if len(os.Args) < 2 {
