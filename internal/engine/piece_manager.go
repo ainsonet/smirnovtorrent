@@ -226,3 +226,17 @@ func (pm *PieceManager) GetFileRange(fileIndex int, files []parser.FileInfo) ([]
 
 	return data, nil
 }
+
+// MarkPieceCompleteDirect отмечает кусок как завершённый без проверки хэша (для resume)
+func (pm *PieceManager) MarkPieceCompleteDirect(index int) {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+
+	if index < 0 || index >= len(pm.pieces) {
+		return
+	}
+
+	piece := pm.pieces[index]
+	piece.Complete = true
+	piece.Requested = false
+}

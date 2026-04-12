@@ -11,12 +11,23 @@ import (
 
 // ResumeData данные для продолжения загрузки
 type ResumeData struct {
-	InfoHash      string   `json:"info_hash"`
-	CompletedPieces []int  `json:"completed_pieces"`
-	Downloaded    int64    `json:"downloaded"`
-	Uploaded      int64    `json:"uploaded"`
-	StartTime     int64    `json:"start_time"`
-	LastSaveTime  int64    `json:"last_save_time"`
+	InfoHash      string     `json:"info_hash"`
+	TorrentName   string     `json:"name,omitempty"`
+	TotalSize     int64      `json:"total_size,omitempty"`
+	PieceLength   int32      `json:"piece_length,omitempty"`
+	CompletedPieces []int    `json:"completed_pieces"`
+	Downloaded    int64      `json:"downloaded"`
+	Uploaded      int64      `json:"uploaded"`
+	StartTime     int64      `json:"start_time"`
+	LastSaveTime  int64      `json:"last_save_time"`
+	Peers         []PeerResumeInfo `json:"peers,omitempty"`
+}
+
+// PeerResumeInfo информация о пире для сохранения
+type PeerResumeInfo struct {
+	IP        string `json:"ip"`
+	Port      uint16 `json:"port"`
+	Encrypted bool   `json:"encrypted"`
 }
 
 // ResumeManager управляет сохранением/загрузкой прогресса
@@ -208,6 +219,69 @@ func (rm *ResumeManager) GetProgress(totalPieces int) float64 {
 	}
 
 	return float64(len(rm.data.CompletedPieces)) / float64(totalPieces) * 100
+}
+
+// AddPeer добавляет пирa в список
+func (rm *ResumeManager) AddPeer(ip string, port uint16, encrypted bool) {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+	
+	// Проверяем есть ли уже такой пир
+	for _, p := range rm.data.Peers {
+		if p.IP == ip && p.Port == port {
+			return
+		}
+	}
+	
+	rm.data.Peers = append(rm.data.Peers, PeerResumeInfo{
+		IP:        ip,
+		Port:      port,
+		Encrypted: encrypted,
+	})
+}
+
+// GetPeers возвращает список сохранённых пиров
+func (rm *ResumeManager) GetPeers() []PeerResumeInfo {
+	rm.mu.RLock()
+	defer rm.mu.RUnlock()
+	
+	peers := make([]PeerResumeInfo, len(rm.data.Peers))
+	copy(peers, rm.data.Peers)
+	return peers
+}
+
+// SetTorrentInfo устанавливает информацию о торренте
+func (rm *ResumeManager) SetTorrentInfo(name string, totalSize int64, pieceLength int32) {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+	
+	rm.data.TorrentName = name
+	rm.data.TotalSize = totalSize
+	rm.data.PieceLength = pieceLength
+}
+
+// Stop останавливает авто-сохранение и сохраняет финальное состояние
+func (rm *ResumeManager) Stop() error {
+	rm.StopAutoSave()
+	return rm.Save()
+}
+
+// UpdateCompletePieces обновляет список завершённых кусков
+func (rm *ResumeManager) UpdateCompletePieces(pieces []int) {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+	
+	rm.data.CompletedPieces = make([]int, len(pieces))
+	copy(rm.data.CompletedPieces, pieces)
+	rm.data.LastSaveTime = time.Now().Unix()
+}
+
+// UpdateDownloaded обновляет размер загруженных данных
+func (rm *ResumeManager) UpdateDownloaded(downloaded int64) {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+	rm.data.Downloaded = downloaded
+	rm.data.LastSaveTime = time.Now().Unix()
 }
 
 // Cleanup удаляет все файлы сохранения в директории

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"smirnovtorrent/internal/dht"
-	"smirnovtorrent/internal/encryption"
 	"smirnovtorrent/internal/parser"
 	"smirnovtorrent/internal/peer"
 	"smirnovtorrent/internal/tracker"
@@ -35,10 +34,11 @@ type DownloadEngine struct {
 	useDHT       bool
 	progressCallback func(float64, int, int, int, float64)
 	
-	// Новые функции
-	encryption     *encryption.MSEMessageStreamEncryption
-	limiter        *RateLimiter
+	// Resume manager
 	resumeManager  *ResumeManager
+	
+	// Rate limiter
+	limiter        *RateLimiter
 }
 
 // DownloadStatus состояние загрузки
@@ -73,33 +73,35 @@ func (e *DownloadEngine) SetProgressCallback(cb func(float64, int, int, int, flo
 
 // SetRateLimits устанавливает ограничения скорости
 func (e *DownloadEngine) SetRateLimits(downloadRate, uploadRate int64) {
-	if e.limiter == nil {
-		e.limiter = NewRateLimiter(downloadRate, uploadRate)
-	} else {
-		e.limiter.SetMaxDownloadRate(downloadRate)
-		e.limiter.SetMaxUploadRate(uploadRate)
-	}
-}
-
-// SetEncryptionKey включает шифрование
-func (e *DownloadEngine) SetEncryptionKey(infoHash [20]byte) {
-	e.encryption = encryption.NewMSEEncryption(infoHash)
+	e.limiter = NewRateLimiter(downloadRate, uploadRate)
 }
 
 // EnableResume включает продолжение загрузки
 func (e *DownloadEngine) EnableResume() {
 	e.resumeManager = NewResumeManager(e.torrent.Info.InfoHash, e.outputDir)
 	
+	// Устанавливаем информацию о торренте
+	e.resumeManager.SetTorrentInfo(
+		e.torrent.Info.Name,
+		e.torrent.TotalSize(),
+		int32(e.torrent.Info.PieceLength),
+	)
+
 	// Загружаем сохранённый прогресс
 	if err := e.resumeManager.Load(); err != nil {
 		log.Printf("Failed to load resume data: %v", err)
 		return
 	}
-	
+
 	// Восстанавливаем завершённые куски
-	// В реальной реализации здесь нужно будет восстановить данные кусков
+	completed := e.resumeManager.GetCompletedPieces()
+	if len(completed) > 0 {
+		log.Printf("Resuming from %d completed pieces", len(completed))
+		// В pieceManager нужно будет отметить эти куски как завершённые
+		// Это будет сделано в Start()
+	}
 	
-	// Запускаем авто-сохранение
+	// Запускаем авто-сохранение каждые 30 секунд
 	e.resumeManager.StartAutoSave(30 * time.Second)
 }
 
@@ -111,12 +113,6 @@ func (e *DownloadEngine) EnableDHT() {
 // Start начинает загрузку
 func (e *DownloadEngine) Start() error {
 	e.ctx, e.cancel = context.WithCancel(context.Background())
-	defer func() {
-		// Очищаем DHT клиент при завершении
-		if e.dhtClient != nil {
-			e.dhtClient.Stop()
-		}
-	}()
 
 	// Инициализируем PieceManager
 	e.pieceManager = NewPieceManager(
@@ -124,6 +120,17 @@ func (e *DownloadEngine) Start() error {
 		e.torrent.TotalSize(),
 		e.torrent.Info.Pieces,
 	)
+
+	// Восстанавливаем завершённые куски если есть resume data
+	if e.resumeManager != nil {
+		completed := e.resumeManager.GetCompletedPieces()
+		for _, pieceIdx := range completed {
+			// Отмечаем куски как завершённые
+			// В реальной реализации нужно проверить хэши
+			e.pieceManager.MarkPieceCompleteDirect(pieceIdx)
+		}
+		log.Printf("Restored %d completed pieces from resume data", len(completed))
+	}
 
 	// Создаём пул пиров
 	peerID := peer.NewPeerID()
@@ -136,6 +143,9 @@ func (e *DownloadEngine) Start() error {
 	// Включаем шифрование
 	e.peerPool.EnableEncryption()
 	
+	// Включаем DHT для поиска пиров
+	e.EnableDHT()
+
 	// Создаём менеджер Rarest-first
 	e.rarestMgr = NewRarestFirstManager(e.pieceManager, e.peerPool)
 
@@ -144,6 +154,7 @@ func (e *DownloadEngine) Start() error {
 	log.Printf("Pieces: %d", e.pieceManager.TotalPieces())
 	log.Printf("Workers: %d", e.numWorkers)
 	log.Printf("DHT: %v", e.useDHT)
+	log.Printf("Resume: %v", e.resumeManager != nil)
 
 	// Создаём директорию для загрузки
 	if err := os.MkdirAll(e.outputDir, 0755); err != nil {
@@ -438,23 +449,73 @@ func (e *DownloadEngine) GetStatus() DownloadStatus {
 	return e.status
 }
 
-// Stop останавливает загрузку
-func (e *DownloadEngine) Stop() {
+// Stop останавливает загрузку с сохранением состояния
+func (e *DownloadEngine) Stop() error {
+	log.Println("Stopping download engine...")
+	
+	// Останавливаем контекст
 	if e.cancel != nil {
 		e.cancel()
 	}
 
+	// Сохраняем состояние перед остановкой
+	if e.resumeManager != nil {
+		log.Println("Saving resume data...")
+		
+		// Обновляем завершённые куски
+		completed := make([]int, 0)
+		for i := 0; i < e.pieceManager.TotalPieces(); i++ {
+			piece, err := e.pieceManager.GetPiece(i)
+			if err == nil && piece.Complete {
+				completed = append(completed, i)
+			}
+		}
+		e.resumeManager.UpdateCompletePieces(completed)
+		
+		// Обновляем загруженные данные
+		e.resumeManager.SetDownloaded(e.status.Downloaded)
+		
+		// Сохраняем пиров
+		if e.peerPool != nil {
+			e.peerPool.mu.RLock()
+			for _, slot := range e.peerPool.peers {
+				e.resumeManager.AddPeer(
+					slot.Conn.Peer.IP,
+					slot.Conn.Peer.Port, 
+					slot.Conn.IsEncrypted(),
+				)
+			}
+			e.peerPool.mu.RUnlock()
+		}
+		
+		// Финальное сохранение
+		if err := e.resumeManager.Stop(); err != nil {
+			log.Printf("Failed to save resume data: %v", err)
+			return err
+		}
+		log.Println("Resume data saved successfully")
+	}
+
+	// Закрываем все соединения с пирами
 	if e.peerPool != nil {
+		log.Println("Closing peer connections...")
 		e.peerPool.CloseAll()
 	}
 
+	// Останавливаем seed manager
 	if e.seedManager != nil {
+		log.Println("Stopping seed manager...")
 		e.seedManager.Stop()
 	}
 
+	// Останавливаем DHT клиент
 	if e.dhtClient != nil {
+		log.Println("Stopping DHT client...")
 		e.dhtClient.Stop()
 	}
+
+	log.Println("Download engine stopped")
+	return nil
 }
 
 // assembleFiles собирает файлы из кусков
