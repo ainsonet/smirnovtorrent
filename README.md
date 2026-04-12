@@ -96,12 +96,14 @@ go test -tags e2e -v -timeout 5m ./cmd/smirnovtorrent
 | Engine | ✅ Complete | 16/16 |
 | Encryption | ✅ Complete | 6/6 |
 | Tracker | ✅ Working | ✓ |
-| DHT | ✅ Basic | ✓ |
+| **DHT** | ✅ **Kademlia** | ✓ |
 | Magnet | ✅ Parsing | ✓ |
 | Peer | ✅ Working | ✓ |
 | **Web UI** | ✅ **v0.8.0** | - |
 
 **Total: 28+ tests passing**
+
+**Current version: v0.9.0**
 
 ## 📝 Roadmap
 
@@ -114,13 +116,15 @@ go test -tags e2e -v -timeout 5m ./cmd/smirnovtorrent
 - [x] Rarest-first algorithm
 - [x] Seed mode
 - [x] Magnet links (parse)
-- [x] DHT support
+- [x] DHT bootstrap
+- [x] **Kademlia routing table** (v0.9.0)
 - [x] BitTorrent encryption
 - [x] Rate limiting
 - [x] Resume support
 - [x] **Web UI** (v0.8.0)
-- [ ] Full DHT implementation (Kademlia)
+- [ ] Full DHT iterative lookup
 - [ ] PEX (Peer Exchange)
+- [ ] Magnet metadata download
 - [ ] Desktop GUI (Tauri)
 
 ## 📄 License
