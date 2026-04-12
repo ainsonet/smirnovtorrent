@@ -221,7 +221,9 @@ func (sm *SeedManager) cleanupInactivePeers() {
 	for key, slot := range sm.peers {
 		if now.Sub(slot.LastActive) > 5*time.Minute {
 			log.Printf("Closing inactive peer: %s", slot.PeerID[:8])
-			slot.Conn.Close()
+			if slot.Conn != nil {
+				slot.Conn.Close()
+			}
 			delete(sm.peers, key)
 		}
 	}

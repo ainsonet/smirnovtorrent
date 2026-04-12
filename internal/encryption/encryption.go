@@ -211,7 +211,7 @@ func ValidateHandshake(data []byte) bool {
 		return false
 	}
 
-	// Проверяем протокол BitTorrent
-	protocol := string(data[:20])
+	// Проверяем что данные начинаются с "BitTorrent protocol" (17 символов)
+	protocol := string(data[:19])
 	return protocol == "BitTorrent protocol"
 }

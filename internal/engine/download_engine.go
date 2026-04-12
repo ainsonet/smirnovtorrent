@@ -359,10 +359,17 @@ func (e *DownloadEngine) updateStatus() {
 	e.statusMu.Lock()
 	defer e.statusMu.Unlock()
 
+	if e.pieceManager == nil {
+		return
+	}
+
 	e.status.Progress = e.pieceManager.Progress()
 	e.status.Downloaded = int64(e.pieceManager.CompletePieces()) * int64(e.torrent.Info.PieceLength)
 	e.status.TotalSize = e.torrent.TotalSize()
-	e.status.ActivePeers = e.peerPool.GetActivePeerCount()
+	
+	if e.peerPool != nil {
+		e.status.ActivePeers = e.peerPool.GetActivePeerCount()
+	}
 	e.status.StartTime = time.Now()
 }
 

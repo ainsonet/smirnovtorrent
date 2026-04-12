@@ -103,6 +103,9 @@ func TestDownloadStatus(t *testing.T) {
 	eng := NewDownloadEngine(torrent, "")
 	eng.pieceManager = NewPieceManager(16384, 163840, torrent.Info.Pieces)
 
+	// Инициализируем статус
+	eng.updateStatus()
+
 	status := eng.GetStatus()
 
 	if status.Progress != 0 {

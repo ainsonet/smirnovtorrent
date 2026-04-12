@@ -144,7 +144,11 @@ func TestCleanupInactivePeers(t *testing.T) {
 	numPieces := 1
 
 	pieceHashes := make([]byte, numPieces*20)
-	data := []byte("test")
+	// Данные правильной длины для куска
+	data := make([]byte, pieceLength)
+	for i := range data {
+		data[i] = byte(i % 256)
+	}
 	hash := sha1.Sum(data)
 	copy(pieceHashes[0:20], hash[:])
 
@@ -153,9 +157,9 @@ func TestCleanupInactivePeers(t *testing.T) {
 
 	sm := NewSeedManager(pm, pool, 5)
 
-	// Добавляем фейкового пирa
+	// Добавляем фейкового пирa с длинным PeerID (20 байт как в BitTorrent)
 	sm.peers["test-peer"] = &SeedPeerSlot{
-		PeerID:     "test",
+		PeerID:     "12345678901234567890", // 20 байт
 		LastActive: time.Now().Add(-10 * time.Minute), // Неактивен 10 минут
 	}
 

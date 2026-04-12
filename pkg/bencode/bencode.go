@@ -70,23 +70,6 @@ func decodeValue(r *bytes.Reader) (Value, error) {
 	}
 }
 
-	fmt.Printf("decodeValue: read typ='%c' (0x%02x)\n", typ, typ)
-
-	switch {
-	case typ == 'i': // integer
-		return decodeInt(r)
-	case typ == 'l': // list
-		return decodeList(r)
-	case typ == 'd': // dict
-		return decodeDict(r)
-	case typ >= '0' && typ <= '9': // string
-		// Не делаем UnreadByte — caller уже сделал его если нужно
-		return decodeStringWithLength(r, int(typ-'0'))
-	default:
-		return nil, fmt.Errorf("unknown bencode type: %c", typ)
-	}
-}
-
 // decodeStringWithLength читает строку, когда длина уже прочитана как первый символ
 func decodeStringWithLength(r *bytes.Reader, firstDigit int) (Value, error) {
 	// Читаем остальную часть длины (до ':')
