@@ -64,7 +64,10 @@ smirnovtorrent/
 - [x] Magnet links (парсинг)
 - [x] CLI с реальным прогресс-баром
 - [x] DHT support (базовая реализация)
-- [ ] BitTorrent encryption
+- [x] BitTorrent encryption (MSE/PE)
+- [x] Rate limiting (скорость загрузки/отдачи)
+- [x] Resume support (продолжение загрузок)
+- [ ] Web UI
 - [ ] Полная DHT реализация
 
 ## 📄 License
