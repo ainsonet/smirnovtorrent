@@ -94,7 +94,7 @@ go test -tags e2e -v -timeout 5m ./cmd/smirnovtorrent
 |--------|--------|-------|
 | Parser | ✅ Complete | 6/6 |
 | Engine | ✅ Complete | 16/16 |
-| Encryption | ✅ Complete | 6/6 |
+| **Encryption** | ✅ **MSE (BEP 47)** | 6/6 |
 | Tracker | ✅ Working | ✓ |
 | **DHT** | ✅ **Kademlia + Iterative** | ✓ |
 | **Magnet** | ✅ **Metadata (BEP 9)** | ✓ |
@@ -104,7 +104,7 @@ go test -tags e2e -v -timeout 5m ./cmd/smirnovtorrent
 
 **Total: 28+ tests passing**
 
-**Current version: v0.11.0**
+**Current version: v0.12.0**
 
 ## 📝 Roadmap
 
@@ -121,12 +121,12 @@ go test -tags e2e -v -timeout 5m ./cmd/smirnovtorrent
 - [x] Kademlia routing table (v0.9.0)
 - [x] DHT iterative lookup (v0.10.0)
 - [x] Magnet metadata download (BEP 9)
-- [x] **PEX (Peer Exchange)** (v0.11.0)
-- [x] BitTorrent encryption
+- [x] PEX (Peer Exchange) (v0.11.0)
+- [x] **BitTorrent encryption (BEP 47)** (v0.12.0)
 - [x] Rate limiting
 - [x] Resume support
 - [x] **Web UI** (v0.8.0)
-- [ ] Encryption integration
+- [ ] Encryption integration in peer connections
 - [ ] Desktop GUI (Tauri)
 
 ## 📄 License
