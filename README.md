@@ -94,17 +94,18 @@ go test -tags e2e -v -timeout 5m ./cmd/smirnovtorrent
 |--------|--------|-------|
 | Parser | ✅ Complete | 6/6 |
 | Engine | ✅ Complete | 16/16 |
-| **Encryption** | ✅ **Full Integration** | 6/6 |
+| Encryption | ✅ Full Integration | 6/6 |
 | Tracker | ✅ Working | ✓ |
-| **DHT** | ✅ **Kademlia + Iterative** | ✓ |
-| **Magnet** | ✅ **Metadata (BEP 9)** | ✓ |
-| **PEX** | ✅ **BEP 11** | ✓ |
+| DHT | ✅ Kademlia + Iterative | ✓ |
+| Magnet | ✅ Metadata (BEP 9) | ✓ |
+| PEX | ✅ BEP 11 | ✓ |
 | Peer | ✅ Working | ✓ |
-| **Web UI** | ✅ **v0.8.0** | - |
+| Web UI | ✅ v0.8.0 | - |
+| **Resume** | ✅ **Graceful Shutdown** | ✓ |
 
 **Total: 28+ tests passing**
 
-**Current version: v0.13.0**
+**Current version: v0.14.0**
 
 ## 📝 Roadmap
 
@@ -123,12 +124,13 @@ go test -tags e2e -v -timeout 5m ./cmd/smirnovtorrent
 - [x] Magnet metadata download (BEP 9)
 - [x] PEX (Peer Exchange) (v0.11.0)
 - [x] BitTorrent encryption (BEP 47) (v0.12.0)
-- [x] **Full encryption integration** (v0.13.0)
+- [x] Full encryption integration (v0.13.0)
+- [x] **Graceful shutdown & resume** (v0.14.0)
 - [x] Rate limiting
 - [x] Resume support
 - [x] **Web UI** (v0.8.0)
-- [ ] Graceful shutdown
 - [ ] Desktop GUI (Tauri)
+- [ ] Production E2E testing
 
 ## 📄 License
 
