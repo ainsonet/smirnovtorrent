@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"log"
@@ -22,6 +23,8 @@ type PeerPool struct {
 	maxPeers    int
 	connected   int
 	connectedMu sync.Mutex
+	pexClient   *peer.PEXClient
+	usePEX      bool
 }
 
 // PeerSlot состояние одного пирa в пуле
@@ -37,13 +40,105 @@ type PeerSlot struct {
 
 // NewPeerPool создаёт новый пул пиров
 func NewPeerPool(infoHash string, peerID string, port uint16, maxPeers int) *PeerPool {
-	return &PeerPool{
+	pool := &PeerPool{
 		peers:    make(map[string]*PeerSlot),
 		infoHash: infoHash,
 		peerID:   peerID,
 		port:     port,
 		maxPeers: maxPeers,
 	}
+	
+	// Инициализируем PEX клиент
+	infoHashBytes, _ := hex.DecodeString(infoHash)
+	peerIDBytes := []byte(peerID)
+	var infoHashArr, peerIDArr [20]byte
+	copy(infoHashArr[:], infoHashBytes)
+	copy(peerIDArr[:], peerIDBytes)
+	pool.pexClient = peer.NewPEXClient(peerIDArr, infoHashArr)
+
+	return pool
+}
+
+// EnablePEX включает Peer Exchange
+func (pp *PeerPool) EnablePEX() {
+	pp.usePEX = true
+}
+
+// SendPEX отправляет PEX сообщения всем пирам
+func (pp *PeerPool) SendPEX() {
+	if !pp.usePEX {
+		return
+	}
+
+	pp.mu.RLock()
+	defer pp.mu.RUnlock()
+
+	pexData, err := pp.pexClient.CreatePEXMessage()
+	if err != nil {
+		log.Printf("PEX: failed to create message: %v", err)
+		return
+	}
+
+	// Отправляем extended message с PEX данным
+	for _, slot := range pp.peers {
+		if slot.Conn != nil {
+			// Extended message type 20, ut_pex = 1
+			pp.sendExtendedMessage(slot.Conn, 1, pexData)
+		}
+	}
+
+	log.Printf("PEX: sent updates to %d peers", len(pp.peers))
+}
+
+// AddDiscoveredPeer добавляет пирa обнаруженного через PEX
+func (pp *PeerPool) AddDiscoveredPeer(ip string, port uint16) {
+	if !pp.usePEX {
+		return
+	}
+	
+	pp.pexClient.AddPeer(ip, port)
+	
+	// Пробуем подключиться к новому пиру
+	peerInfo := tracker.PeerInfo{
+		IP:   ip,
+		Port: port,
+	}
+	pp.AddPeer(peerInfo)
+}
+
+// RemoveDisconnectedPeer удаляет отключенного пирa из PEX
+func (pp *PeerPool) RemoveDisconnectedPeer(ip string, port uint16) {
+	if !pp.usePEX {
+		return
+	}
+	
+	pp.pexClient.RemovePeer(ip, port)
+}
+
+// sendExtendedMessage отправляет extended сообщение
+func (pp *PeerPool) sendExtendedMessage(conn *peer.PeerConnection, extMsgID byte, data []byte) error {
+	// Extended message format: length (4) + msg_type (1=20) + ext_msgid (1) + payload
+	payload := append([]byte{extMsgID}, data...)
+	
+	// Длина: 1 (msg_type=20) + len(payload)
+	totalLen := uint32(1 + len(payload))
+	
+	// Заголовок: длина (4 байта big-endian)
+	header := make([]byte, 4)
+	binary.BigEndian.PutUint32(header, totalLen)
+	
+	if _, err := conn.Conn.Write(header); err != nil {
+		return err
+	}
+	
+	// Тип сообщения extended (20)
+	if _, err := conn.Conn.Write([]byte{20}); err != nil {
+		return err
+	}
+
+	// Payload
+	_, err := conn.Conn.Write(payload)
+	return err
 }
 
 // AddPeer добавляет пирa в пул

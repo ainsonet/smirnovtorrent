@@ -130,6 +130,9 @@ func (e *DownloadEngine) Start() error {
 	peerIDStr := string(peerID[:])
 	e.peerPool = NewPeerPool(e.torrent.Info.InfoHash, peerIDStr, 6881, 50)
 
+	// Включаем PEX для обмена пирами
+	e.peerPool.EnablePEX()
+
 	// Создаём менеджер Rarest-first
 	e.rarestMgr = NewRarestFirstManager(e.pieceManager, e.peerPool)
 
@@ -345,6 +348,10 @@ func (e *DownloadEngine) downloadLoop() error {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
+	// PEX обновление каждые 60 секунд
+	pexTicker := time.NewTicker(60 * time.Second)
+	defer pexTicker.Stop()
+
 	var lastBytes int64
 	var lastUpdate time.Time
 
@@ -392,6 +399,12 @@ func (e *DownloadEngine) downloadLoop() error {
 				e.pieceManager.TotalPieces(),
 				e.peerPool.GetActivePeerCount(),
 				downloadSpeed/1024)
+		
+		case <-pexTicker.C:
+			// Отправляем PEX обновление
+			if e.peerPool != nil {
+				go e.peerPool.SendPEX()
+			}
 		}
 	}
 }
