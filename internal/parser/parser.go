@@ -121,20 +121,7 @@ func parseInfo(infoDict bencode.Dict) TorrentInfo {
 		}
 	}
 
-	// Single file mode
-	if length, exists := infoDict["length"]; exists {
-		if len(info.Files) == 0 {
-			// Это single-file torrent
-			if l, ok := length.(bencode.Int); ok {
-				info.Files = append(info.Files, FileInfo{
-					Path: info.Name,
-					Size: int64(l),
-				})
-			}
-		}
-	}
-
-	// Multi-file mode
+	// Multi-file mode (проверяем ПЕРЕД single-file)
 	if files, exists := infoDict["files"]; exists {
 		if fileList, ok := files.(bencode.List); ok {
 			for _, fileVal := range fileList {
@@ -142,6 +129,18 @@ func parseInfo(infoDict bencode.Dict) TorrentInfo {
 					file := parseFileInfo(fileDict, info.Name)
 					info.Files = append(info.Files, file)
 				}
+			}
+		}
+	}
+
+	// Single file mode (только если files пустой)
+	if len(info.Files) == 0 {
+		if length, exists := infoDict["length"]; exists {
+			if l, ok := length.(bencode.Int); ok {
+				info.Files = append(info.Files, FileInfo{
+					Path: info.Name,
+					Size: int64(l),
+				})
 			}
 		}
 	}

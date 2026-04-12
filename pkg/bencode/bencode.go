@@ -64,11 +64,58 @@ func decodeValue(r *bytes.Reader) (Value, error) {
 	case typ == 'd': // dict
 		return decodeDict(r)
 	case typ >= '0' && typ <= '9': // string
-		r.UnreadByte()
-		return decodeString(r)
+		return decodeStringWithLength(r, int(typ-'0'))
 	default:
 		return nil, fmt.Errorf("unknown bencode type: %c", typ)
 	}
+}
+
+	fmt.Printf("decodeValue: read typ='%c' (0x%02x)\n", typ, typ)
+
+	switch {
+	case typ == 'i': // integer
+		return decodeInt(r)
+	case typ == 'l': // list
+		return decodeList(r)
+	case typ == 'd': // dict
+		return decodeDict(r)
+	case typ >= '0' && typ <= '9': // string
+		// Не делаем UnreadByte — caller уже сделал его если нужно
+		return decodeStringWithLength(r, int(typ-'0'))
+	default:
+		return nil, fmt.Errorf("unknown bencode type: %c", typ)
+	}
+}
+
+// decodeStringWithLength читает строку, когда длина уже прочитана как первый символ
+func decodeStringWithLength(r *bytes.Reader, firstDigit int) (Value, error) {
+	// Читаем остальную часть длины (до ':')
+	var lenBuf bytes.Buffer
+	lenBuf.WriteByte(byte('0' + firstDigit))
+	for {
+		b, err := r.ReadByte()
+		if err != nil {
+			return nil, err
+		}
+		if b == ':' {
+			break
+		}
+		lenBuf.WriteByte(b)
+	}
+
+	length, err := strconv.ParseInt(lenBuf.String(), 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	// Читаем саму строку
+	data := make([]byte, length)
+	_, err = io.ReadFull(r, data)
+	if err != nil {
+		return nil, err
+	}
+
+	return String(data), nil
 }
 
 func decodeInt(r *bytes.Reader) (Value, error) {
@@ -157,17 +204,17 @@ func decodeDict(r *bytes.Reader) (Value, error) {
 		// Ключ должен быть строкой
 		keyVal, err := decodeValue(r)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("decodeDict: failed to decode key: %w", err)
 		}
 		key, ok := keyVal.(String)
 		if !ok {
 			return nil, errors.New("dict key must be string")
 		}
 
-		// Значение
+		// Значение (не делаем UnreadByte здесь — decodeValue читает сам)
 		val, err := decodeValue(r)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("decodeDict: failed to decode value for key %s: %w", key, err)
 		}
 
 		dict[string(key)] = val
