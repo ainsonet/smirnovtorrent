@@ -59,7 +59,7 @@ func TestUnmarshalList(t *testing.T) {
 }
 
 func TestUnmarshalDict(t *testing.T) {
-	data := []byte("d3:foo3:bar4:teste")
+	data := []byte("d3:foo3:bar4:test5:helloe")
 	val, err := Unmarshal(data)
 	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
@@ -76,6 +76,14 @@ func TestUnmarshalDict(t *testing.T) {
 		t.Fatalf("Expected String, got %T", str)
 	} else if string(s) != "bar" {
 		t.Fatalf("Expected 'bar', got '%s'", s)
+	}
+
+	if str, exists := dict["test"]; !exists {
+		t.Fatal("Key 'test' not found")
+	} else if s, ok := str.(String); !ok {
+		t.Fatalf("Expected String, got %T", str)
+	} else if string(s) != "hello" {
+		t.Fatalf("Expected 'hello', got '%s'", s)
 	}
 }
 

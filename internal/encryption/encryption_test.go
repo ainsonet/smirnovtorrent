@@ -1,6 +1,7 @@
 package encryption
 
 import (
+	"crypto/rc4"
 	"crypto/rand"
 	"testing"
 )
@@ -29,8 +30,8 @@ func TestComputeHash(t *testing.T) {
 	enc := NewMSEEncryption(key)
 	
 	data := []byte("test data")
-	infoHash := make([]byte, 20)
-	_, _ = rand.Read(infoHash)
+	var infoHash [20]byte
+	_, _ = rand.Read(infoHash[:])
 
 	hash := enc.computeHash(data, infoHash, key)
 	
@@ -45,6 +46,12 @@ func TestEncryptionRoundTrip(t *testing.T) {
 
 	enc := NewMSEEncryption(key)
 
+	// Устанавливаем шифры
+	encryptKey := enc.deriveKey(key, key, true)
+	decryptKey := enc.deriveKey(key, key, false)
+	enc.encryptCipher, _ = rc4.NewCipher(encryptKey)
+	enc.decryptCipher, _ = rc4.NewCipher(decryptKey)
+
 	// Создаём тестовые данные
 	original := []byte("Hello, BitTorrent!")
 
@@ -53,10 +60,6 @@ func TestEncryptionRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Encryption failed: %v", err)
 	}
-
-	// Устанавливаем шифры для расшифровки
-	enc.encryptCipher, _ = rc4.NewCipher(key[:16])
-	enc.decryptCipher, _ = rc4.NewCipher(key[:16])
 
 	// Расшифровываем
 	decrypted, err := enc.DecryptData(encrypted)
@@ -89,8 +92,9 @@ func TestEncryptionModeString(t *testing.T) {
 }
 
 func TestValidateHandshake(t *testing.T) {
-	// Валидное рукопожатие
-	valid := []byte("BitTorrent protocol")
+	// Валидное рукопожатие (17 символов + 3 пробела = 20)
+	valid := make([]byte, 20)
+	copy(valid, "BitTorrent protocol")
 	if !ValidateHandshake(valid) {
 		t.Error("Expected valid handshake")
 	}

@@ -110,7 +110,7 @@ func TestInfoHash(t *testing.T) {
 	}
 
 	// Хеш должен быть 40 символов hex
-	if len(torrent.InfoHash) != 40 {
-		t.Errorf("Expected 40 char hash, got %d", len(torrent.InfoHash))
+	if len(torrent.Info.InfoHash) != 40 {
+		t.Errorf("Expected 40 char hash, got %d", len(torrent.Info.InfoHash))
 	}
 }

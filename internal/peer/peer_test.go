@@ -9,9 +9,9 @@ import (
 func TestNewPeerID(t *testing.T) {
 	peerID := NewPeerID()
 
-	// Проверяем префикс
-	if string(peerID[:8]) != PeerIDPrefix {
-		t.Errorf("Expected prefix %s, got %s", PeerIDPrefix, string(peerID[:8]))
+	// Проверяем префикс (PeerIDPrefix = 10 байт)
+	if string(peerID[:10]) != PeerIDPrefix {
+		t.Errorf("Expected prefix %s, got %s", PeerIDPrefix, string(peerID[:10]))
 	}
 }
 
