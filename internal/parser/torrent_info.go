@@ -60,11 +60,14 @@ type Torrent struct {
 
 	// Кодировка имен файлов
 	Encoding string
+
+	// Комментарий (опционально)
+	Comment string
 }
 
 // PieceSize возвращает размер кусков в более понятном формате
 func (t *Torrent) PieceSize() string {
-	return formatBytes(t.PieceLength)
+	return formatBytes(t.Info.PieceLength)
 }
 
 // TotalSize возвращает общий размер всех файлов
@@ -78,7 +81,7 @@ func (t *Torrent) TotalSize() int64 {
 
 // InfoHashBytes возвращает InfoHash в виде байтового массива
 func (t *Torrent) InfoHashBytes() []byte {
-	hash, _ := hex.DecodeString(t.InfoHash)
+	hash, _ := hex.DecodeString(t.Info.InfoHash)
 	return hash
 }
 

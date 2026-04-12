@@ -68,10 +68,10 @@ func (e *MSEMessageStreamEncryption) InitHandshake(conn net.Conn, infoHash [20]b
 }
 
 // computeHash вычисляет hash для рукопожатия
-func (e *MSEMessageStreamEncryption) computeHash(data, infoHash, encryptionKey []byte) []byte {
+func (e *MSEMessageStreamEncryption) computeHash(data []byte, infoHash [20]byte, encryptionKey []byte) []byte {
 	hash := sha1.New()
 	hash.Write(data)
-	hash.Write(infoHash)
+	hash.Write(infoHash[:])
 	hash.Write(encryptionKey)
 	return hash.Sum(nil)
 }

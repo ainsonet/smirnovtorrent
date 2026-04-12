@@ -8,8 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-
-	"smirnovtorrent/internal/parser"
 )
 
 // PeerInfo информация о пире
