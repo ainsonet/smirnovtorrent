@@ -12,12 +12,12 @@ import (
 
 // SeedManager управляет режимом раздачи (seed)
 type SeedManager struct {
-	pieceManager *PieceManager
-	peerPool     *PeerPool
-	peers        map[string]*PeerSlot
-	mu           sync.RWMutex
+	pieceManager  *PieceManager
+	peerPool      *PeerPool
+	peers         map[string]*SeedPeerSlot
+	mu            sync.RWMutex
 	seedStartTime time.Time
-	targetPeers  int
+	targetPeers   int
 }
 
 // SeedPeerSlot информация о пире при раздаче

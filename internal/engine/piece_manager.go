@@ -73,10 +73,6 @@ func (pm *PieceManager) GetNextPiece() *Piece {
 
 	return nil
 }
-	}
-
-	return nil
-}
 
 // MarkPieceComplete отмечает кусок как завершённый
 func (pm *PieceManager) MarkPieceComplete(index int, data []byte) error {

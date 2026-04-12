@@ -185,36 +185,3 @@ func formatFloat(f float64, precision int) string {
 	}
 	return fmt.Sprintf("%.1f", f)
 }
-	div, exp := int64(unit), 0
-	for n := bytesPerSecond / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	suffixes := []string{"KB", "MB", "GB"}
-	return formatBytes(float64(bytesPerSecond)/float64(div)) + suffixes[exp] + "/s"
-}
-
-// formatBytes вспомогательная функция
-func formatBytes(bytes float64) string {
-	return formatBytesHelper(bytes)
-}
-
-// formatBytesHelper форматирует байты
-func formatBytesHelper(bytes float64) string {
-	const unit = 1024
-	if bytes < unit {
-		return formatFloat(bytes, 1) + " B"
-	}
-	div, exp := float64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	suffixes := []string{"KB", "MB", "GB", "TB"}
-	return formatFloat(bytes/div, 1) + " " + suffixes[exp]
-}
-
-// formatFloat форматирует float
-func formatFloat(f float64, precision int) string {
-	return string(rune(int(f))) // Упрощённая версия
-}
