@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"os"
 
+	"smirnovtorrent/internal/engine"
 	"smirnovtorrent/internal/parser"
 )
 
-const version = "0.2.0"
+const version = "0.3.0"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -85,7 +86,6 @@ func showInfo(path string) {
 }
 
 func download(source string) {
-	// Пока заглушка, но будем показывать информацию
 	if len(source) > 8 && source[:8] == "magnet:?" {
 		fmt.Println("Magnet link support coming soon!")
 		return
@@ -97,17 +97,26 @@ func download(source string) {
 		os.Exit(1)
 	}
 
+	// Проверяем валидность торрента
+	if err := torrent.IsValid(); err != nil {
+		fmt.Printf("Invalid torrent: %v\n", err)
+		os.Exit(1)
+	}
+
 	fmt.Printf("Starting download: %s\n", torrent.Info.Name)
 	fmt.Printf("Size: %d bytes\n", torrent.TotalSize())
+	fmt.Printf("Pieces: %d\n", len(torrent.Info.Pieces)/20)
 	fmt.Printf("Tracker: %s\n", torrent.Announce)
 	fmt.Println()
-	fmt.Println("Download implementation in progress...")
-	fmt.Println("Modules ready:")
-	fmt.Println("  ✓ Bencode parser")
-	fmt.Println("  ✓ Torrent parser")
-	fmt.Println("  ✓ Tracker client")
-	fmt.Println("  ✓ Peer protocol")
-	fmt.Println("  ✓ Piece manager")
+
+	// Создаём и запускаем движок загрузки
+	eng := engine.NewDownloadEngine(torrent, "")
+	
+	if err := eng.Start(); err != nil {
+		fmt.Printf("Download error: %v\n", err)
+		os.Exit(1)
+	}
+
 	fmt.Println()
-	fmt.Println("Downloading not yet implemented - stay tuned!")
+	fmt.Println("Download completed successfully!")
 }

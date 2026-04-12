@@ -55,10 +55,11 @@ smirnovtorrent/
 - [x] Работа с трекерами (HTTP)
 - [x] Peer protocol (handshake, messages)
 - [x] Piece manager
-- [ ] CLI интерфейс (базовый)
-- [ ] Поддержка нескольких пиров
+- [x] Download Engine (базовый)
+- [ ] CLI интерфейс (полный)
+- [ ] Поддержка нескольких пиров (параллельная загрузка)
 - [ ] Seed-режим
-- [ ] Полная реализация загрузки
+- [ ] Multi-file torrent support
 
 ## 📄 License
 
