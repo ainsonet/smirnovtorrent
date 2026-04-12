@@ -1,5 +1,7 @@
 # SmirnovTorrent
 
+![Logo](logo.png)
+
 🌊 Легковесный BitTorrent клиент на Go
 
 ## 🚀 Особенности
