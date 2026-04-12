@@ -30,6 +30,12 @@ func main() {
 		}
 		torrentSource := os.Args[2]
 		download(torrentSource)
+	case "webui":
+		port := 8080
+		if len(os.Args) >= 3 {
+			fmt.Sscanf(os.Args[2], "%d", &port)
+		}
+		startWebUI(port)
 	case "info":
 		if len(os.Args) < 3 {
 			fmt.Println("Error: torrent file required")
@@ -54,6 +60,7 @@ func printUsage() {
 	fmt.Println()
 	fmt.Println("Commands:")
 	fmt.Println("  download <file.torrent|magnet>  Download a torrent")
+	fmt.Println("  webui [port]                    Start web interface (default: 8080)")
 	fmt.Println("  info <file.torrent>             Show torrent information")
 	fmt.Println("  version                         Show version")
 	fmt.Println("  help                            Show this help message")
@@ -61,6 +68,7 @@ func printUsage() {
 	fmt.Println("Example:")
 	fmt.Println("  smirnovtorrent download example.torrent")
 	fmt.Println("  smirnovtorrent download \"magnet:?xt=urn:btih:...\"")
+	fmt.Println("  smirnovtorrent webui 8080")
 	fmt.Println("  smirnovtorrent info example.torrent")
 }
 
@@ -218,4 +226,31 @@ func formatBytesFloat(bytes float64) string {
 	}
 	suffixes := []string{"KB", "MB", "GB", "TB"}
 	return fmt.Sprintf("%.1f %s", bytes/div, suffixes[exp])
+}
+
+// startWebUI запускает веб-интерфейс
+func startWebUI(port int) {
+	fmt.Println("Starting Web UI...")
+	fmt.Printf("Open http://localhost:%d in your browser\n", port)
+	fmt.Println()
+
+	// Создаём тестовый движок (для демонстрации)
+	torrent := &parser.Torrent{
+		Info: parser.TorrentInfo{
+			Name:        "Demo Torrent",
+			InfoHash:    "0000000000000000000000000000000000000000",
+			PieceLength: 16384,
+			Pieces:      make([]byte, 20),
+			Files:       []parser.FileInfo{{Path: "demo.txt", Size: 1024}},
+		},
+	}
+
+	eng := engine.NewDownloadEngine(torrent, "")
+	webui := NewWebUI(eng, port)
+
+	// Запускаем веб-сервер
+	if err := webui.Start(); err != nil {
+		fmt.Printf("Web UI error: %v\n", err)
+		os.Exit(1)
+	}
 }
