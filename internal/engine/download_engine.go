@@ -133,6 +133,9 @@ func (e *DownloadEngine) Start() error {
 	// Включаем PEX для обмена пирами
 	e.peerPool.EnablePEX()
 
+	// Включаем шифрование
+	e.peerPool.EnableEncryption()
+	
 	// Создаём менеджер Rarest-first
 	e.rarestMgr = NewRarestFirstManager(e.pieceManager, e.peerPool)
 

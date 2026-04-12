@@ -15,16 +15,18 @@ import (
 
 // PeerPool пул подключений к пирам
 type PeerPool struct {
-	peers       map[string]*PeerSlot
-	mu          sync.RWMutex
-	infoHash    string
-	peerID      string
-	port        uint16
-	maxPeers    int
-	connected   int
-	connectedMu sync.Mutex
-	pexClient   *peer.PEXClient
-	usePEX      bool
+	peers         map[string]*PeerSlot
+	mu            sync.RWMutex
+	infoHash      string
+	peerID        string
+	port          uint16
+	maxPeers      int
+	connected     int
+	connectedMu   sync.Mutex
+	pexClient     *peer.PEXClient
+	usePEX        bool
+	useEncryption bool
+	infoHashBytes [20]byte
 }
 
 // PeerSlot состояние одного пирa в пуле
@@ -36,6 +38,7 @@ type PeerSlot struct {
 	LastActive   time.Time
 	Choked       bool
 	Interested   bool
+	Encrypted    bool   // зашифровано ли соединение
 }
 
 // NewPeerPool создаёт новый пул пиров
@@ -48,13 +51,15 @@ func NewPeerPool(infoHash string, peerID string, port uint16, maxPeers int) *Pee
 		maxPeers: maxPeers,
 	}
 	
-	// Инициализируем PEX клиент
+	// Сохраняем info hash bytes для шифрования
 	infoHashBytes, _ := hex.DecodeString(infoHash)
+	copy(pool.infoHashBytes[:], infoHashBytes)
+	
+	// Инициализируем PEX клиент
 	peerIDBytes := []byte(peerID)
-	var infoHashArr, peerIDArr [20]byte
-	copy(infoHashArr[:], infoHashBytes)
+	var peerIDArr [20]byte
 	copy(peerIDArr[:], peerIDBytes)
-	pool.pexClient = peer.NewPEXClient(peerIDArr, infoHashArr)
+	pool.pexClient = peer.NewPEXClient(peerIDArr, pool.infoHashBytes)
 
 	return pool
 }
@@ -62,6 +67,11 @@ func NewPeerPool(infoHash string, peerID string, port uint16, maxPeers int) *Pee
 // EnablePEX включает Peer Exchange
 func (pp *PeerPool) EnablePEX() {
 	pp.usePEX = true
+}
+
+// EnableEncryption включает шифрование соединений
+func (pp *PeerPool) EnableEncryption() {
+	pp.useEncryption = true
 }
 
 // SendPEX отправляет PEX сообщения всем пирам
@@ -156,10 +166,29 @@ func (pp *PeerPool) AddPeer(p tracker.PeerInfo) error {
 		PeerID: peer.NewPeerID(),
 	}
 
-	conn, err := peerObj.Connect()
-	if err != nil {
-		log.Printf("Failed to connect to %s:%d: %v", p.IP, p.Port, err)
-		return err
+	var conn *peer.PeerConnection
+	var err error
+
+	// Пытаемся подключиться с шифрованием если включено
+	if pp.useEncryption {
+		conn, err = peerObj.ConnectWithEncryption(pp.infoHashBytes)
+		if err != nil {
+			log.Printf("Encrypted connection failed to %s:%d: %v", p.IP, p.Port, err)
+			// Fallback к обычному соединению
+			conn, err = peerObj.Connect()
+			if err != nil {
+				log.Printf("Failed to connect to %s:%d: %v", p.IP, p.Port, err)
+				return err
+			}
+		} else {
+			log.Printf("Encrypted connection established with %s:%d", p.IP, p.Port)
+		}
+	} else {
+		conn, err = peerObj.Connect()
+		if err != nil {
+			log.Printf("Failed to connect to %s:%d: %v", p.IP, p.Port, err)
+			return err
+		}
 	}
 
 	// Отправляем handshake
@@ -213,10 +242,11 @@ func (pp *PeerPool) AddPeer(p tracker.PeerInfo) error {
 	}
 
 	peerSlot := &PeerSlot{
-		PeerID:    string(remotePeerID[:]),
-		Conn:      conn,
-		HasPieces: hasPieces,
+		PeerID:     string(remotePeerID[:]),
+		Conn:       conn,
+		HasPieces:  hasPieces,
 		LastActive: time.Now(),
+		Encrypted:  conn.IsEncrypted(),
 	}
 
 	pp.mu.Lock()
@@ -228,7 +258,7 @@ func (pp *PeerPool) AddPeer(p tracker.PeerInfo) error {
 	pp.connected++
 	pp.connectedMu.Unlock()
 
-	log.Printf("Connected to peer %s (%d pieces)", remotePeerID[:8], countBits(hasPieces))
+	log.Printf("Connected to peer %s (%d pieces, encrypted=%v)", remotePeerID[:8], countBits(hasPieces), conn.IsEncrypted())
 
 	// Отправляем interested
 	conn.SendInterested()

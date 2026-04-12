@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net"
+	
+	"smirnovtorrent/internal/encryption"
 )
 
 // PeerID размер peer ID в байтах
@@ -14,7 +16,7 @@ const PeerIDSize = 20
 const ProtocolName = "BitTorrent protocol"
 
 // PeerIDPrefix префикс для нашего peer ID
-const PeerIDPrefix = "-SMRV0100-"
+const PeerIDPrefix = "-SMRV0120-"
 
 // Message types
 const (
@@ -42,7 +44,14 @@ type Peer struct {
 // PeerConnection активное соединение с пиром
 type PeerConnection struct {
 	Peer
-	Conn net.Conn
+	Conn        net.Conn
+	encrypted   bool
+	mse         *encryption.MSEMessageStreamEncryption
+}
+
+// IsEncrypted возвращает true если соединение зашифровано
+func (pc *PeerConnection) IsEncrypted() bool {
+	return pc.encrypted
 }
 
 // NewPeerID создаёт уникальный peer ID
@@ -65,8 +74,36 @@ func (p *Peer) Connect() (*PeerConnection, error) {
 	}
 
 	return &PeerConnection{
-		Peer: *p,
-		Conn: conn,
+		Peer:      *p,
+		Conn:      conn,
+		encrypted: false,
+	}, nil
+}
+
+// ConnectWithEncryption пытается установить зашифрованное соединение
+func (p *Peer) ConnectWithEncryption(infoHash [20]byte) (*PeerConnection, error) {
+	addr := fmt.Sprintf("%s:%d", p.IP, p.Port)
+	conn, err := net.DialTimeout("tcp", addr, 5*1000000000) // 5 секунд
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect: %w", err)
+	}
+
+	// Пытаемся установить MSE handshake
+	mse := encryption.NewMSEEncryption(infoHash)
+	if err := mse.InitHandshake(conn); err != nil {
+		// Не удалось установить шифрование, закрываем и пробуем без
+		conn.Close()
+		return p.Connect()
+	}
+
+	// Оборачиваем соединение
+	encConn := encryption.NewEncryptedConnection(conn, mse)
+
+	return &PeerConnection{
+		Peer:      *p,
+		Conn:      encConn,
+		encrypted: true,
+		mse:       mse,
 	}, nil
 }
 
