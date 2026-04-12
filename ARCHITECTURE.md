@@ -79,8 +79,9 @@ Peer protocol implementation.
 ### `internal/engine`
 Download orchestration.
 - **Responsibility**: Coordinate the download process
-- **Key types**: `DownloadEngine`, `PieceManager`, `DownloadStatus`
+- **Key types**: `DownloadEngine`, `PieceManager`, `DownloadStatus`, `SeedManager`
 - **Key functions**: `Start`, `GetNextPiece`, `MarkPieceComplete`, `AssembleFile`
+- **Modes**: Download mode, Seed mode
 
 ## Data Flow
 
@@ -112,6 +113,13 @@ Download orchestration.
    ```
    PieceManager.AssembleFile() → Raw data
    DownloadEngine.assembleFiles() → Write to disk
+   ```
+
+6. **Seed Mode**
+   ```
+   Download complete → SeedManager.StartSeed()
+   Incoming peer connections → HandlePeerConnection()
+   Piece requests → handleRequest() → SendPiece()
    ```
 
 ## Concurrency

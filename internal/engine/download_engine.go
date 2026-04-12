@@ -23,12 +23,14 @@ type DownloadEngine struct {
 	pieceManager *PieceManager
 	peerPool     *PeerPool
 	rarestMgr    *RarestFirstManager
+	seedManager  *SeedManager
 	tracker      *tracker.Tracker
 	cancel       context.CancelFunc
 	ctx          context.Context
 	status       DownloadStatus
 	statusMu     sync.RWMutex
 	numWorkers   int
+	seedMode     bool
 }
 
 // DownloadStatus состояние загрузки
@@ -234,10 +236,28 @@ func (e *DownloadEngine) downloadPiece(workerID int, piece *Piece) error {
 			log.Printf("Files saved to: %s", e.outputDir)
 		}
 		
+		// Переходим в seed режим
+		go e.startSeedMode()
+		
 		e.cancel()
+		return nil
 	}
 
 	return nil
+}
+
+// startSeedMode запускает режим раздачи
+func (e *DownloadEngine) startSeedMode() {
+	e.seedMode = true
+	log.Println("Switching to seed mode...")
+
+	// Создаём SeedManager
+	e.seedManager = NewSeedManager(e.pieceManager, e.peerPool, 20)
+
+	// Запускаем seed режим
+	if err := e.seedManager.StartSeed(); err != nil {
+		log.Printf("Seed mode error: %v", err)
+	}
 }
 
 // downloadLoop основной цикл загрузки
@@ -248,6 +268,12 @@ func (e *DownloadEngine) downloadLoop() error {
 	for {
 		select {
 		case <-e.ctx.Done():
+			// Если мы в seed режиме, продолжаем работать
+			if e.seedMode {
+				log.Println("Download complete, running in seed mode...")
+				// Seed режим работает в отдельной горутине
+				return nil
+			}
 			return nil
 		case <-ticker.C:
 			e.updateStatus()
@@ -306,6 +332,10 @@ func (e *DownloadEngine) Stop() {
 
 	if e.peerPool != nil {
 		e.peerPool.CloseAll()
+	}
+
+	if e.seedManager != nil {
+		e.seedManager.Stop()
 	}
 }
 

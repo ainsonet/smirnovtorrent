@@ -60,9 +60,10 @@ smirnovtorrent/
 - [x] Параллельная загрузка (multiple workers)
 - [x] Rarest-first алгоритм выбора кусков
 - [x] Peer pool management
+- [x] Seed-режим (раздача)
 - [ ] CLI интерфейс (полный с прогресс-баром)
-- [ ] Seed-режим
 - [ ] DHT support
+- [ ] Magnet links
 
 ## 📄 License
 
