@@ -42,7 +42,7 @@ func (pb *ProgressBar) Show(progress float64, current, total int, activePeers in
 	bar += "]"
 
 	// Скорость в байтах/секунду
-	speedStr := formatBytes(downloadSpeed) + "/s"
+	speedStr := formatBytesFloat(downloadSpeed) + "/s"
 
 	// Время оставшееся
 	elapsed := time.Since(pb.startTime).Seconds()

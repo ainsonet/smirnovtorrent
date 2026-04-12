@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"time"
 
 	"smirnovtorrent/internal/engine"
 	"smirnovtorrent/internal/magnet"
@@ -164,8 +163,8 @@ func downloadFromMagnet(magnetLink string) {
 	fmt.Println("For now, you need to provide a .torrent file.")
 }
 
-// formatBytes форматирует размер в байтах для вывода
-func formatBytes(bytes float64) string {
+// formatBytesFloat форматирует размер в байтах для вывода (для float64 скорости)
+func formatBytesFloat(bytes float64) string {
 	const unit = 1024
 	if bytes < unit {
 		return fmt.Sprintf("%.1f B", bytes)
