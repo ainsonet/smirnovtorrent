@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"smirnovtorrent/internal/encryption"
 	"smirnovtorrent/internal/parser"
 	"smirnovtorrent/internal/peer"
 	"smirnovtorrent/internal/tracker"
@@ -32,6 +33,11 @@ type DownloadEngine struct {
 	numWorkers   int
 	seedMode     bool
 	progressCallback func(float64, int, int, int, float64)
+	
+	// Новые функции
+	encryption     *encryption.MSEMessageStreamEncryption
+	limiter        *RateLimiter
+	resumeManager  *ResumeManager
 }
 
 // DownloadStatus состояние загрузки
@@ -66,6 +72,38 @@ func NewDownloadEngine(torrent *parser.Torrent, outputDir string) *DownloadEngin
 // SetProgressCallback устанавливает callback для обновления прогресса
 func (e *DownloadEngine) SetProgressCallback(cb func(float64, int, int, int, float64)) {
 	e.progressCallback = cb
+}
+
+// SetRateLimits устанавливает ограничения скорости
+func (e *DownloadEngine) SetRateLimits(downloadRate, uploadRate int64) {
+	if e.limiter == nil {
+		e.limiter = NewRateLimiter(downloadRate, uploadRate)
+	} else {
+		e.limiter.SetMaxDownloadRate(downloadRate)
+		e.limiter.SetMaxUploadRate(uploadRate)
+	}
+}
+
+// SetEncryptionKey включает шифрование
+func (e *DownloadEngine) SetEncryptionKey(key []byte) {
+	e.encryption = encryption.NewMSEEncryption(key)
+}
+
+// EnableResume включает продолжение загрузки
+func (e *DownloadEngine) EnableResume() {
+	e.resumeManager = NewResumeManager(e.torrent.InfoHash, e.outputDir)
+	
+	// Загружаем сохранённый прогресс
+	if err := e.resumeManager.Load(); err != nil {
+		log.Printf("Failed to load resume data: %v", err)
+		return
+	}
+	
+	// Восстанавливаем завершённые куски
+	// В реальной реализации здесь нужно будет восстановить данные кусков
+	
+	// Запускаем авто-сохранение
+	e.resumeManager.StartAutoSave(30 * time.Second)
 }
 
 // Start начинает загрузку
