@@ -192,7 +192,7 @@ func download(source string, cfg *config.Config, outputDir string) {
 	appLog.Info("Torrent: %s, Size: %d bytes", torrent.Info.Name, torrent.TotalSize())
 	
 	fmt.Printf("Starting download: %s\n", torrent.Info.Name)
-	fmt.Printf("Size: %d bytes (%s)\n", torrent.TotalSize(), formatBytes(float64(torrent.TotalSize())))
+	fmt.Printf("Size: %d bytes (%s)\n", torrent.TotalSize(), formatBytesFloat(float64(torrent.TotalSize())))
 	fmt.Printf("Pieces: %d\n", len(torrent.Info.Pieces)/20)
 	fmt.Printf("Piece size: %s\n", torrent.PieceSize())
 	fmt.Printf("Tracker: %s\n", torrent.Announce)
