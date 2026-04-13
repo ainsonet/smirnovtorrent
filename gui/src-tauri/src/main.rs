@@ -5,8 +5,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
-use std::process::{Command, Stdio};
-use std::path::PathBuf;
 
 // Download status structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -148,33 +146,6 @@ fn get_version() -> String {
     "1.0.0".to_string()
 }
 
-// Command: Open download folder
-#[tauri::command]
-fn open_download_folder() -> Result<(), String> {
-    let downloads_dir = dirs::download_dir()
-        .ok_or_else(|| "Could not find downloads directory".to_string())?;
-    
-    #[cfg(target_os = "windows")]
-    Command::new("explorer")
-        .arg(downloads_dir)
-        .spawn()
-        .map_err(|e| e.to_string())?;
-    
-    #[cfg(target_os = "macos")]
-    Command::new("open")
-        .arg(downloads_dir)
-        .spawn()
-        .map_err(|e| e.to_string())?;
-    
-    #[cfg(target_os = "linux")]
-    Command::new("xdg-open")
-        .arg(downloads_dir)
-        .spawn()
-        .map_err(|e| e.to_string())?;
-    
-    Ok(())
-}
-
 fn main() {
     tauri::Builder::default()
         .manage(AppState {
@@ -187,8 +158,7 @@ fn main() {
             remove_download,
             get_downloads,
             get_downloads_status,
-            get_version,
-            open_download_folder
+            get_version
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

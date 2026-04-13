@@ -94,10 +94,6 @@
         "transparent": false
       }
     ],
-    "systemTray": {
-      "iconPath": "icons/icon.ico",
-      "iconAsTemplate": false
-    },
     "updater": {
       "active": false
     }
