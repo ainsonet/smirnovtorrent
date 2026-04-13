@@ -1,148 +1,97 @@
 package engine
 
 import (
-	"context"
 	"fmt"
 	"sync"
 	"time"
+
+	"smirnovtorrent/internal/ratelimit"
 )
 
 // RateLimiter ограничивает скорость передачи
 type RateLimiter struct {
-	maxDownloadRate int64 // байт в секунду
-	maxUploadRate   int64 // байт в секунду
-	currentDL       int64
-	currentUL       int64
-	mu              sync.Mutex
-	ctx             context.Context
-	cancel          context.CancelFunc
-	ticker          *time.Ticker
+	downloadLimiter *ratelimit.RateLimiter
+	uploadLimiter   *ratelimit.RateLimiter
+	mu              sync.RWMutex
 }
 
 // NewRateLimiter создаёт новый лимитер скорости
+// maxDownloadRate - максимальная скорость загрузки в байт/сек (0 = без ограничений)
+// maxUploadRate - максимальная скорость отдачи в байт/сек (0 = без ограничений)
 func NewRateLimiter(maxDownloadRate, maxUploadRate int64) *RateLimiter {
-	ctx, cancel := context.WithCancel(context.Background())
-	
 	return &RateLimiter{
-		maxDownloadRate: maxDownloadRate,
-		maxUploadRate:   maxUploadRate,
-		ctx:             ctx,
-		cancel:          cancel,
+		downloadLimiter: ratelimit.NewRateLimiter(maxDownloadRate, time.Second),
+		uploadLimiter:   ratelimit.NewRateLimiter(maxUploadRate, time.Second),
 	}
 }
 
 // Start запускает цикл лимитирования
 func (rl *RateLimiter) Start() {
-	rl.ticker = time.NewTicker(1 * time.Second)
-	
-	go func() {
-		for {
-			select {
-			case <-rl.ctx.Done():
-				rl.ticker.Stop()
-				return
-			case <-rl.ticker.C:
-				rl.mu.Lock()
-				// Сбрасываем счётчики
-				rl.currentDL = 0
-				rl.currentUL = 0
-				rl.mu.Unlock()
-			}
-		}
-	}()
+	// В новой реализации лимитер работает автоматически через Allow/Wait
 }
 
 // Stop останавливает лимитер
 func (rl *RateLimiter) Stop() {
-	rl.cancel()
+	// В новой реализации нет необходимости в остановке
 }
 
-// RecordDownload записывает загруженные байты
-func (rl *RateLimiter) RecordDownload(bytes int64) error {
-	rl.mu.Lock()
-	defer rl.mu.Unlock()
-
-	if rl.maxDownloadRate > 0 {
-		rl.currentDL += bytes
-		
-		// Проверяем лимит
-		if rl.currentDL > rl.maxDownloadRate {
-			// Ждём до следующего тика
-			rl.waitForReset()
-		}
-	}
-
-	return nil
+// WaitDownload ожидает разрешения на загрузку n байт
+func (rl *RateLimiter) WaitDownload(n int64) {
+	rl.mu.RLock()
+	defer rl.mu.RUnlock()
+	rl.downloadLimiter.Wait(n)
 }
 
-// RecordUpload записывает отправленные байты
-func (rl *RateLimiter) RecordUpload(bytes int64) error {
-	rl.mu.Lock()
-	defer rl.mu.Unlock()
-
-	if rl.maxUploadRate > 0 {
-		rl.currentUL += bytes
-		
-		// Проверяем лимит
-		if rl.currentUL > rl.maxUploadRate {
-			// Ждём до следующего тика
-			rl.waitForReset()
-		}
-	}
-
-	return nil
-}
-
-// waitForReset ждёт сброса счётчиков
-func (rl *RateLimiter) waitForReset() {
-	// Простая реализация - ждём 1 секунду
-	// В production можно использовать более умный подход
-	time.Sleep(1 * time.Second)
+// WaitUpload ожидает разрешения на отдачу n байт
+func (rl *RateLimiter) WaitUpload(n int64) {
+	rl.mu.RLock()
+	defer rl.mu.RUnlock()
+	rl.uploadLimiter.Wait(n)
 }
 
 // SetMaxDownloadRate устанавливает максимальную скорость загрузки
 func (rl *RateLimiter) SetMaxDownloadRate(rate int64) {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
-	rl.maxDownloadRate = rate
+	rl.downloadLimiter.SetLimit(rate)
 }
 
 // SetMaxUploadRate устанавливает максимальную скорость отдачи
 func (rl *RateLimiter) SetMaxUploadRate(rate int64) {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
-	rl.maxUploadRate = rate
+	rl.uploadLimiter.SetLimit(rate)
 }
 
 // GetMaxDownloadRate возвращает максимальную скорость загрузки
 func (rl *RateLimiter) GetMaxDownloadRate() int64 {
-	rl.mu.Lock()
-	defer rl.mu.Unlock()
-	return rl.maxDownloadRate
+	rl.mu.RLock()
+	defer rl.mu.RUnlock()
+	return rl.downloadLimiter.GetLimit()
 }
 
 // GetMaxUploadRate возвращает максимальную скорость отдачи
 func (rl *RateLimiter) GetMaxUploadRate() int64 {
-	rl.mu.Lock()
-	defer rl.mu.Unlock()
-	return rl.maxUploadRate
+	rl.mu.RLock()
+	defer rl.mu.RUnlock()
+	return rl.uploadLimiter.GetLimit()
 }
 
-// GetDownloadRate возвращает текущую скорость загрузки
+// GetDownloadRate возвращает доступное количество байт для загрузки
 func (rl *RateLimiter) GetDownloadRate() int64 {
-	rl.mu.Lock()
-	defer rl.mu.Unlock()
-	return rl.currentDL
+	rl.mu.RLock()
+	defer rl.mu.RUnlock()
+	return rl.downloadLimiter.GetAvailable()
 }
 
-// GetUploadRate возвращает текущую скорость отдачи
+// GetUploadRate возвращает доступное количество байт для отдачи
 func (rl *RateLimiter) GetUploadRate() int64 {
-	rl.mu.Lock()
-	defer rl.mu.Unlock()
-	return rl.currentUL
+	rl.mu.RLock()
+	defer rl.mu.RUnlock()
+	return rl.uploadLimiter.GetAvailable()
 }
 
-// Unlimiter снимает все ограничения
+// Unlimit снимает все ограничения
 func (rl *RateLimiter) Unlimit() {
 	rl.SetMaxDownloadRate(0)
 	rl.SetMaxUploadRate(0)
@@ -152,7 +101,7 @@ func (rl *RateLimiter) Unlimit() {
 func FormatRate(bytesPerSecond int64) string {
 	const unit = 1024
 	if bytesPerSecond < unit {
-		return formatBytesFloat(float64(bytesPerSecond)) + "/s"
+		return fmt.Sprintf("%d B/s", bytesPerSecond)
 	}
 	div, exp := int64(unit), 0
 	for n := bytesPerSecond / unit; n >= unit; n /= unit {
@@ -160,7 +109,7 @@ func FormatRate(bytesPerSecond int64) string {
 		exp++
 	}
 	suffixes := []string{"KB", "MB", "GB"}
-	return formatBytesFloat(float64(bytesPerSecond)/float64(div)) + suffixes[exp] + "/s"
+	return fmt.Sprintf("%.1f %s/s", float64(bytesPerSecond)/float64(div), suffixes[exp])
 }
 
 // formatBytesFloat форматирует байты
