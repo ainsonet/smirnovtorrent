@@ -17,18 +17,12 @@ jobs:
         with:
           go-version: '1.21'
       
-      - name: Install Fyne CLI
-        run: go install fyne.io/tools/cmd/fyne@latest
+      - name: Build CLI + Web UI
+        working-directory: cmd/smirnovtorrent
+        run: go build -o smirnovtorrent.exe
       
-      - name: Build GUI
-        working-directory: gui
-        run: |
-          $env:PATH = "$env:GOPATH\bin;$env:PATH"
-          go mod tidy
-          go build -o SmirnovTorrent.exe main.go
-
-      - name: Upload GUI App
+      - name: Upload App
         uses: actions/upload-artifact@v4
         with:
-          name: SmirnovTorrent-GUI
-          path: gui/SmirnovTorrent.exe
+          name: SmirnovTorrent
+          path: cmd/smirnovtorrent/smirnovtorrent.exe
