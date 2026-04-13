@@ -197,23 +197,6 @@
 - [ ] Performance benchmarks for all modules
 - [ ] Bug fixes from real-world usage
 
-## 🚀 Post-v1.0.0 Roadmap
-
-### v1.1.0
-- [ ] Desktop GUI (Tauri)
-- [ ] Advanced statistics
-- [ ] Plugin system
-
-### v1.2.0
-- [ ] Web UI improvements
-- [ ] Mobile-friendly interface
-- [ ] API enhancements
-
-### v2.0.0
-- [ ] WebTorrent support
-- [ ] IPv6 support
-- [ ] Advanced encryption options
-
 ---
 
 **Last Updated**: 2024  
