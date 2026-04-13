@@ -11,6 +11,7 @@
     "tauri": "tauri"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^1.5"
+    "@tauri-apps/cli": "^1.5",
+    "vite": "^5.0"
   }
 }
