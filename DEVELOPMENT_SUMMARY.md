@@ -1,7 +1,7 @@
 # SmirnovTorrent Development Summary
 
-**Current Version**: v0.14.0  
-**Status**: Production Ready (~98%)  
+**Current Version**: v0.15.0  
+**Status**: Production Ready (~99%)  
 **Last Updated**: 2024
 
 ## 🎯 Project Overview
@@ -22,8 +22,8 @@ SmirnovTorrent is a lightweight, high-performance BitTorrent client written in G
 | Peer | ✅ Working | ✓ | 90% |
 | Web UI | ✅ v0.8.0 | - | 90% |
 | Resume | ✅ Graceful Shutdown | ✓ | 95% |
-| **Config** | ✅ **New** | 5/5 | 100% |
-| **Logger** | ✅ **New** | 4/4 | 100% |
+| **Config** | ✅ **Integrated in CLI** | 5/5 | 100% |
+| **Logger** | ✅ **Integrated in CLI** | 4/4 | 100% |
 
 **Total: 37+ tests passing**
 
@@ -43,13 +43,13 @@ SmirnovTorrent is a lightweight, high-performance BitTorrent client written in G
 ```
 smirnovtorrent/
 ├── .github/workflows/ci.yml    # CI/CD pipeline
-├── cmd/smirnovtorrent/         # CLI + Web UI
+├── cmd/smirnovtorrent/         # CLI + Web UI ⭐ Config & Logger integrated
 ├── internal/
-│   ├── config/                 # Configuration management ⭐ NEW
+│   ├── config/                 # Configuration management ⭐
 │   ├── dht/                    # Kademlia DHT
 │   ├── engine/                 # Download engine
 │   ├── encryption/             # MSE encryption
-│   ├── logger/                 # Structured logging ⭐ NEW
+│   ├── logger/                 # Structured logging ⭐
 │   ├── magnet/                 # Magnet metadata
 │   ├── parser/                 # Torrent parser + benchmarks
 │   ├── peer/                   # Peer protocol + PEX
@@ -59,7 +59,8 @@ smirnovtorrent/
 ├── README.md                   # Project overview
 ├── USAGE.md                    # User documentation
 ├── CONTRIBUTING.md             # Contributor guidelines
-└── SECURITY.md                 # Security policy
+├── SECURITY.md                 # Security policy
+└── smirnovtorrent.example.json # Example config file ⭐
 ```
 
 ## 🚀 Quick Start
@@ -71,7 +72,11 @@ make build
 # Test
 make test
 
-# Run
+# Run with default config
+./bin/smirnovtorrent download file.torrent
+
+# Run with custom config
+cp smirnovtorrent.example.json ~/.smirnovtorrent/config.json
 ./bin/smirnovtorrent download file.torrent
 ```
 
@@ -82,14 +87,21 @@ BenchmarkParseMinimalTorrent      272367    5620 ns/op    2801 B/op
 BenchmarkParseMultiFileTorrent     10000  110497 ns/op   60572 B/op
 ```
 
+## 🎯 What's New in v0.15.0
+
+- ⭐ **Configuration System**: JSON config file with auto-load
+- ⭐ **Structured Logging**: Timestamps, levels, prefixes
+- ⭐ **CLI Integration**: Config applied to all downloads
+- ⭐ **Better UX**: Informative logs and error messages
+
 ## 📈 Remaining Work for v1.0.0
 
 - [ ] Desktop GUI (Tauri)
 - [ ] Production E2E testing
-- [ ] Performance benchmarking (more modules)
-- [ ] Config integration in CLI
+- [ ] Rate limiting implementation in engine
+- [ ] More benchmark tests
 
 ---
 
 **Status**: Production Ready ✅  
-**Completion**: ~98%
+**Completion**: ~99%

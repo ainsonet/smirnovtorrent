@@ -1,0 +1,16 @@
+{
+  "peer_port": 6881,
+  "max_peers": 50,
+  "output_dir": "",
+  "download_rate_limit": 0,
+  "upload_rate_limit": 0,
+  "enable_dht": true,
+  "enable_pex": true,
+  "enable_encryption": true,
+  "enable_resume": true,
+  "webui_port": 8080,
+  "webui_host": "localhost",
+  "enable_webui": false,
+  "num_workers": 4,
+  "seed_ratio": 0
+}
