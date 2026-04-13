@@ -14,7 +14,8 @@
       "all": true
     },
     "bundle": {
-      "active": false
+      "active": false,
+      "identifier": "com.smirnovtorrent.app"
     },
     "security": {
       "csp": null
