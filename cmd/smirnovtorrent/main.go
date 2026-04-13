@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
@@ -12,7 +13,7 @@ import (
 	"smirnovtorrent/internal/parser"
 )
 
-const version = "0.14.0"
+const version = "0.16.0"
 
 var appLog *logger.Logger
 
@@ -49,13 +50,42 @@ func main() {
 	case "version":
 		fmt.Printf("SmirnovTorrent v%s\n", version)
 	case "download":
-		if len(os.Args) < 3 {
+		downloadCmd := flag.NewFlagSet("download", flag.ExitOnError)
+		outputDir := downloadCmd.String("o", "", "Output directory")
+		downloadLimit := downloadCmd.Int64("download-limit", cfg.DownloadRateLimit, "Download speed limit in bytes/sec (0 = unlimited)")
+		uploadLimit := downloadCmd.Int64("upload-limit", cfg.UploadRateLimit, "Upload speed limit in bytes/sec (0 = unlimited)")
+		enableDHT := downloadCmd.Bool("dht", cfg.EnableDHT, "Enable DHT peer discovery")
+		enablePEX := downloadCmd.Bool("pex", cfg.EnablePEX, "Enable Peer Exchange")
+		enableEncryption := downloadCmd.Bool("encrypt", cfg.EnableEncryption, "Enable MSE encryption")
+		
+		downloadCmd.Usage = func() {
+			fmt.Println("Usage: smirnovtorrent download [options] <file.torrent|magnet>")
+			downloadCmd.PrintDefaults()
+		}
+		
+		downloadCmd.Parse(os.Args[2:])
+		
+		if downloadCmd.NArg() < 1 {
 			fmt.Println("Error: torrent file or magnet link required")
-			fmt.Println("Usage: smirnovtorrent download <file.torrent|magnet>")
+			downloadCmd.Usage()
 			os.Exit(1)
 		}
-		torrentSource := os.Args[2]
-		download(torrentSource, cfg)
+		
+		torrentSource := downloadCmd.Arg(0)
+		
+		// Применяем флаги к конфигурации
+		if *downloadLimit > 0 {
+			cfg.DownloadRateLimit = *downloadLimit
+		}
+		if *uploadLimit > 0 {
+			cfg.UploadRateLimit = *uploadLimit
+		}
+		cfg.EnableDHT = *enableDHT
+		cfg.EnablePEX = *enablePEX
+		cfg.EnableEncryption = *enableEncryption
+		
+		download(torrentSource, cfg, *outputDir)
+		
 	case "webui":
 		port := cfg.WebUIPort
 		if len(os.Args) >= 3 {
@@ -91,9 +121,20 @@ func printUsage() {
 	fmt.Println("  version                         Show version")
 	fmt.Println("  help                            Show this help message")
 	fmt.Println()
-	fmt.Println("Example:")
+	fmt.Println("Download Options:")
+	fmt.Println("  -o string           Output directory")
+	fmt.Println("  -download-limit int Download speed limit in bytes/sec (0 = unlimited)")
+	fmt.Println("  -upload-limit int   Upload speed limit in bytes/sec (0 = unlimited)")
+	fmt.Println("  -dht                Enable DHT peer discovery (default: true)")
+	fmt.Println("  -pex                Enable Peer Exchange (default: true)")
+	fmt.Println("  -encrypt            Enable MSE encryption (default: true)")
+	fmt.Println()
+	fmt.Println("Examples:")
 	fmt.Println("  smirnovtorrent download example.torrent")
 	fmt.Println("  smirnovtorrent download \"magnet:?xt=urn:btih:...\"")
+	fmt.Println("  smirnovtorrent download file.torrent -o ~/Downloads")
+	fmt.Println("  smirnovtorrent download file.torrent -download-limit 1048576 -upload-limit 524288")
+	fmt.Println("  smirnovtorrent download file.torrent -dht -pex -encrypt")
 	fmt.Println("  smirnovtorrent webui 8080")
 	fmt.Println("  smirnovtorrent info example.torrent")
 }
@@ -120,7 +161,7 @@ func showInfo(path string) {
 	}
 }
 
-func download(source string, cfg *config.Config) {
+func download(source string, cfg *config.Config, outputDir string) {
 	appLog.Info("Starting download from: %s", source)
 
 	// Проверяем это magnet ссылка
@@ -150,10 +191,24 @@ func download(source string, cfg *config.Config) {
 	fmt.Printf("Pieces: %d\n", len(torrent.Info.Pieces)/20)
 	fmt.Printf("Piece size: %s\n", torrent.PieceSize())
 	fmt.Printf("Tracker: %s\n", torrent.Announce)
+	
+	// Показываем лимиты скорости
+	if cfg.DownloadRateLimit > 0 {
+		fmt.Printf("Download limit: %s/s\n", engine.FormatRate(cfg.DownloadRateLimit))
+	} else {
+		fmt.Println("Download limit: unlimited")
+	}
+
+	if cfg.UploadRateLimit > 0 {
+		fmt.Printf("Upload limit: %s/s\n", engine.FormatRate(cfg.UploadRateLimit))
+	} else {
+		fmt.Println("Upload limit: unlimited")
+	}
+	
 	fmt.Println()
 
 	// Создаём и запускаем движок загрузки
-	eng := engine.NewDownloadEngine(torrent, "")
+	eng := engine.NewDownloadEngine(torrent, outputDir)
 	
 	// Применяем конфигурацию
 	if cfg.EnableDHT {
@@ -166,15 +221,21 @@ func download(source string, cfg *config.Config) {
 		// PEX включается автоматически в PeerPool
 	}
 	
-	// Rate limiting
-	if cfg.DownloadRateLimit > 0 {
-		appLog.Info("Download limit: %d bytes/sec", cfg.DownloadRateLimit)
-		// eng.SetDownloadLimit(cfg.DownloadRateLimit) // TODO: add method
+	if cfg.EnableEncryption {
+		appLog.Info("Encryption enabled")
+		// Encryption is enabled by default in PeerPool
 	}
 	
-	if cfg.UploadRateLimit > 0 {
-		appLog.Info("Upload limit: %d bytes/sec", cfg.UploadRateLimit)
-		// eng.SetUploadLimit(cfg.UploadRateLimit) // TODO: add method
+	// Rate limiting
+	if cfg.DownloadRateLimit > 0 || cfg.UploadRateLimit > 0 {
+		appLog.Info("Setting rate limits: DL=%d, UL=%d bytes/sec", cfg.DownloadRateLimit, cfg.UploadRateLimit)
+		eng.SetRateLimits(cfg.DownloadRateLimit, cfg.UploadRateLimit)
+	}
+	
+	// Resume support
+	if cfg.EnableResume {
+		appLog.Info("Resume support enabled")
+		eng.EnableResume()
 	}
 	
 	// Устанавливаем callback для обновления прогресса
