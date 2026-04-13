@@ -23,12 +23,31 @@
 - ✅ Structured logging
 - ✅ JSON configuration
 
-## 📦 Installation
+## 📦 Установка
+
+### Windows (Готовый установщик)
+
+1. Скачайте установщик: `SmirnovTorrent_1.0.0_x64-setup.exe`
+2. Запустите и следуйте инструкциям
+3. Готово! Приложение в меню Пуск
+
+**Или соберите сами:**
+```powershell
+.\build-installer.ps1
+```
+
+### Из исходников
 
 ```bash
+# CLI
 git clone https://github.com/ainsonet/smirnovtorrent.git
 cd smirnovtorrent
 go build -o smirnovtorrent.exe ./cmd/smirnovtorrent
+
+# Desktop GUI
+cd gui
+npm install
+npm run tauri dev
 ```
 
 ## 💻 Usage

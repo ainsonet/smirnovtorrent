@@ -3,7 +3,8 @@
     "beforeBuildCommand": "npm run build",
     "beforeDevCommand": "npm run dev",
     "devPath": "http://localhost:3000",
-    "distDir": "../dist"
+    "distDir": "../dist",
+    "withGlobalTauri": true
   },
   "package": {
     "productName": "SmirnovTorrent",
@@ -34,11 +35,19 @@
         "removeFile": true,
         "renameFile": true,
         "exists": true
+      },
+      "path": {
+        "all": true
+      },
+      "process": {
+        "all": true,
+        "exit": true,
+        "spawn": true
       }
     },
     "bundle": {
       "active": true,
-      "targets": "all",
+      "targets": ["msi", "nsis"],
       "identifier": "com.smirnovtorrent.desktop",
       "icon": [
         "icons/32x32.png",
@@ -53,8 +62,20 @@
       "category": "Utility",
       "shortDescription": "Lightweight BitTorrent Client",
       "longDescription": "SmirnovTorrent is a modern, lightweight BitTorrent client with DHT, PEX, encryption, and rate limiting.",
-      "deb": {
-        "depends": []
+      "windows": {
+        "certificateThumbprint": null,
+        "digestAlgorithm": "sha256",
+        "timestampUrl": "",
+        "nsis": {
+          "installMode": "currentUser",
+          "languages": ["English", "Russian"],
+          "displayLanguageSelector": true,
+          "installerIcon": "icons/icon.ico",
+          "headerImage": null,
+          "sidebarImage": null,
+          "license": "../../LICENSE",
+          "template": null
+        }
       },
       "macOS": {
         "entitlements": null,
@@ -63,10 +84,8 @@
         "providerShortName": null,
         "signingIdentity": null
       },
-      "windows": {
-        "certificateThumbprint": null,
-        "digestAlgorithm": "sha256",
-        "timestampUrl": ""
+      "deb": {
+        "depends": []
       }
     },
     "security": {
@@ -80,8 +99,18 @@
         "title": "SmirnovTorrent v1.0.0",
         "width": 1200,
         "minWidth": 800,
-        "minHeight": 600
+        "minHeight": 600,
+        "center": true,
+        "decorations": true,
+        "transparent": false
       }
-    ]
+    ],
+    "systemTray": {
+      "iconPath": "icons/icon.ico",
+      "iconAsTemplate": false
+    },
+    "updater": {
+      "active": false
+    }
   }
 }
