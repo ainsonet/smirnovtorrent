@@ -13,7 +13,7 @@ import (
 	"smirnovtorrent/internal/parser"
 )
 
-const version = "0.16.0"
+const version = "1.0.0"
 
 var appLog *logger.Logger
 
