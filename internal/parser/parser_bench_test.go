@@ -2,11 +2,13 @@ package parser
 
 import (
 	"testing"
+	
+	"smirnovtorrent/pkg/bencode"
 )
 
 // BenchmarkParseMinimalTorrent бенчмарк для парсинга минимального торрента
 func BenchmarkParseMinimalTorrent(b *testing.B) {
-	data := createMinimalTorrent()
+	data := createTestTorrent()
 	
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -17,9 +19,14 @@ func BenchmarkParseMinimalTorrent(b *testing.B) {
 	}
 }
 
-// BenchmarkParseLargeTorrent бенчмарк для парсинга большого торрента
-func BenchmarkParseLargeTorrent(b *testing.B) {
-	data := createLargeTorrent(100) // 100 файлов
+// BenchmarkParseMultiFileTorrent бенчмарк для парсинга multi-file торрента
+func BenchmarkParseMultiFileTorrent(b *testing.B) {
+	root := createMultiFileTorrentData(50) // 50 файлов
+	
+	data, err := bencode.Marshal(root)
+	if err != nil {
+		b.Fatalf("Marshal failed: %v", err)
+	}
 	
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -30,24 +37,23 @@ func BenchmarkParseLargeTorrent(b *testing.B) {
 	}
 }
 
-// createMinimalTorrent создаёт минимальный торрент для тестов
-func createMinimalTorrent() []byte {
-	// Простой bencode торрент
-	return []byte("d8:announce27:http://tracker.example.com4:infod6:lengthi1024e4:name9:test.txt12:piece lengthi16384e6:pieces20:01234567890123456789ee")
-}
-
-// createLargeTorrent создаёт большой торрент с множеством файлов
-func createLargeTorrent(numFiles int) []byte {
-	// Генерируем bencode с множеством файлов
-	result := "d8:announce27:http://tracker.example.com4:infod5:filesl"
-	
+// createMultiFileTorrentData создаёт данные для multi-file торрента
+func createMultiFileTorrentData(numFiles int) bencode.Dict {
+	files := bencode.List{}
 	for i := 0; i < numFiles; i++ {
-		result += "d6:lengthi1024e4:pathl7:file"
-		result += string(rune(i%10 + '0'))
-		result += "ee"
+		files = append(files, bencode.Dict{
+			"length": bencode.Int(1024),
+			"path":   bencode.List{bencode.String("file" + string(rune(i+'0')) + ".txt")},
+		})
 	}
 	
-	result += "e12:piece lengthi16384e6:pieces20:01234567890123456789eee"
-	
-	return []byte(result)
+	return bencode.Dict{
+		"announce": bencode.String("http://tracker.example.com"),
+		"info": bencode.Dict{
+			"files":        files,
+			"piece length": bencode.Int(16384),
+			"pieces":       bencode.String(make([]byte, 20)),
+			"name":         bencode.String("testfolder"),
+		},
+	}
 }
