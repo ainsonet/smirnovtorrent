@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"smirnovtorrent/internal/engine"
 )
@@ -48,8 +49,12 @@ func (w *WebUI) Start() error {
 	// Регистрируем обработчики
 	http.HandleFunc("/", w.handleIndex)
 	http.HandleFunc("/api/status", w.handleAPIStatus)
+	http.HandleFunc("/api/add", w.handleAPIAdd)
 	http.HandleFunc("/api/start", w.handleAPIStart)
 	http.HandleFunc("/api/stop", w.handleAPIStop)
+	http.HandleFunc("/api/remove", w.handleAPIRemove)
+	http.HandleFunc("/api/pause", w.handleAPIPause)
+	http.HandleFunc("/api/resume", w.handleAPIResume)
 	
 	addr := fmt.Sprintf(":%d", w.port)
 	log.Printf("Web UI starting on http://localhost%s", addr)
@@ -127,6 +132,102 @@ func (w *WebUI) handleAPIStop(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(rw).Encode(map[string]string{
 		"message": "Download stopped",
+	})
+}
+
+// handleAPIAdd обрабатывает добавление торрента
+func (w *WebUI) handleAPIAdd(rw http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(rw, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Path string `json:"path"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(rw, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if req.Path == "" {
+		http.Error(rw, "Path is required", http.StatusBadRequest)
+		return
+	}
+
+	w.mu.Lock()
+	w.status.TorrentName = req.Path
+	w.status.Status = "downloading"
+	w.status.Progress = 0
+	w.status.Downloaded = 0
+	w.status.TotalSize = 100 * 1024 * 1024 // 100MB demo
+	w.mu.Unlock()
+
+	addLog("Added torrent: " + req.Path)
+
+	rw.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(rw).Encode(map[string]string{
+		"message": "Torrent added successfully",
+		"id":      "demo-" + fmt.Sprint(time.Now().Unix()),
+	})
+}
+
+// handleAPIRemove обрабатывает удаление торрента
+func (w *WebUI) handleAPIRemove(rw http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(rw, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.mu.Lock()
+	w.status.Status = "stopped"
+	w.status.TorrentName = ""
+	w.mu.Unlock()
+
+	addLog("Torrent removed")
+
+	rw.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(rw).Encode(map[string]string{
+		"message": "Torrent removed",
+	})
+}
+
+// handleAPIPause обрабатывает паузу
+func (w *WebUI) handleAPIPause(rw http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(rw, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.mu.Lock()
+	w.status.Status = "paused"
+	w.mu.Unlock()
+
+	addLog("Download paused")
+
+	rw.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(rw).Encode(map[string]string{
+		"message": "Download paused",
+	})
+}
+
+// handleAPIResume обрабатывает продолжение
+func (w *WebUI) handleAPIResume(rw http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(rw, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.mu.Lock()
+	w.status.Status = "downloading"
+	w.mu.Unlock()
+
+	addLog("Download resumed")
+
+	rw.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(rw).Encode(map[string]string{
+		"message": "Download resumed",
 	})
 }
 

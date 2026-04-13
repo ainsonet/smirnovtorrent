@@ -319,135 +319,139 @@
     </section>
   </div>
 
-  <script>
-    let downloads = [];
-    let statsInterval = null;
+    <script>
+    let updateInterval = null;
 
-    function addTorrent() {
+    // Add torrent
+    async function addTorrent() {
       const input = document.getElementById('torrentInput');
       const value = input.value.trim();
       
-      if (!value) return;
-
-      const id = 'torrent-' + Date.now();
-      const name = value.includes('magnet:') ? value.substring(0, 50) + '...' : value.split('/').pop();
-      
-      downloads.push({
-        id,
-        name,
-        value,
-        progress: 0,
-        downloaded: 0,
-        uploaded: 0,
-        downloadSpeed: 0,
-        uploadSpeed: 0,
-        peers: 0,
-        status: 'downloading'
-      });
-
-      input.value = '';
-      renderDownloads();
-    }
-
-    function pauseTorrent(id) {
-      const torrent = downloads.find(d => d.id === id);
-      if (torrent) torrent.status = 'paused';
-      renderDownloads();
-    }
-
-    function resumeTorrent(id) {
-      const torrent = downloads.find(d => d.id === id);
-      if (torrent) torrent.status = 'downloading';
-      renderDownloads();
-    }
-
-    function removeTorrent(id) {
-      downloads = downloads.filter(d => d.id !== id);
-      renderDownloads();
-    }
-
-    function renderDownloads() {
-      const container = document.getElementById('downloadsList');
-      
-      if (downloads.length === 0) {
-        container.innerHTML = `
-          <div class="empty-state">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
-                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
-            </svg>
-            <p>No active torrents</p>
-          </div>
-        `;
-        document.getElementById('activeTorrents').textContent = '0';
+      if (!value) {
+        alert('Please enter a magnet link or .torrent path');
         return;
       }
 
-      container.innerHTML = downloads.map(dl => `
-        <div class="download-item">
-          <div class="download-header">
-            <div class="download-name">${escapeHtml(dl.name)}</div>
-            <span class="download-status status-${dl.status}">${dl.status}</span>
-          </div>
-          
-          <div class="progress-bar">
-            <div class="progress-fill" style="width: ${dl.progress}%"></div>
-          </div>
-          
-          <div class="download-info">
-            <div class="info-item">
-              <span>↓</span> <span>${formatBytes(dl.downloaded)}</span>
-            </div>
-            <div class="info-item">
-              <span>↑</span> <span>${formatBytes(dl.uploaded)}</span>
-            </div>
-            <div class="info-item">
-              <span>Peers:</span> <span>${dl.peers}</span>
-            </div>
-          </div>
-          
-          <div class="download-actions">
-            ${dl.status === 'downloading' 
-              ? `<button class="btn-pause" onclick="pauseTorrent('${dl.id}')">Pause</button>`
-              : `<button class="btn-resume" onclick="resumeTorrent('${dl.id}')">Resume</button>`
-            }
-            <button class="btn-remove" onclick="removeTorrent('${dl.id}')">Remove</button>
-          </div>
-        </div>
-      `).join('');
+      try {
+        const response = await fetch('/api/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: value })
+        });
 
-      document.getElementById('activeTorrents').textContent = downloads.length;
-    }
-
-    function updateStats() {
-      downloads.forEach(dl => {
-        if (dl.status === 'downloading') {
-          dl.progress = Math.min(100, dl.progress + 0.5);
-          dl.downloaded += dl.downloadSpeed;
-          dl.uploaded += dl.uploadSpeed;
-          dl.peers = Math.floor(Math.random() * 20) + 5;
-          dl.downloadSpeed = Math.floor(Math.random() * 2 * 1024 * 1024);
-          dl.uploadSpeed = Math.floor(Math.random() * 512 * 1024);
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Torrent added:', data);
+          input.value = '';
+          // Update UI
+          updateStats();
+        } else {
+          const error = await response.text();
+          alert('Error: ' + error);
         }
-      });
-
-      const totalDownload = downloads
-        .filter(d => d.status === 'downloading')
-        .reduce((sum, d) => sum + d.downloadSpeed, 0);
-      const totalUpload = downloads
-        .filter(d => d.status === 'downloading')
-        .reduce((sum, d) => sum + d.uploadSpeed, 0);
-      const totalPeers = downloads
-        .filter(d => d.status === 'downloading')
-        .reduce((sum, d) => sum + d.peers, 0);
-
-      document.getElementById('downloadSpeed').textContent = formatSpeed(totalDownload);
-      document.getElementById('uploadSpeed').textContent = formatSpeed(totalUpload);
-      document.getElementById('activePeers').textContent = totalPeers;
-
-      renderDownloads();
+      } catch (err) {
+        alert('Failed to add torrent: ' + err.message);
+      }
     }
 
+    // Pause torrent
+    async function pauseTorrent() {
+      try {
+        await fetch('/api/pause', { method: 'POST' });
+        updateStats();
+      } catch (err) {
+        console.error('Pause error:', err);
+      }
+    }
+
+    // Resume torrent
+    async function resumeTorrent() {
+      try {
+        await fetch('/api/resume', { method: 'POST' });
+        updateStats();
+      } catch (err) {
+        console.error('Resume error:', err);
+      }
+    }
+
+    // Remove torrent
+    async function removeTorrent() {
+      if (!confirm('Remove this torrent?')) return;
+      
+      try {
+        await fetch('/api/remove', { method: 'POST' });
+        updateStats();
+      } catch (err) {
+        console.error('Remove error:', err);
+      }
+    }
+
+    // Update statistics
+    async function updateStats() {
+      try {
+        const response = await fetch('/api/status');
+        const data = await response.json();
+        
+        // Update stats cards
+        document.getElementById('downloadSpeed').textContent = formatSpeed(data.downloadSpeed);
+        document.getElementById('uploadSpeed').textContent = formatSpeed(data.uploadSpeed);
+        document.getElementById('activePeers').textContent = data.activePeers;
+        document.getElementById('activeTorrents').textContent = data.status === 'downloading' || data.status === 'paused' ? '1' : '0';
+        
+        // Update downloads list
+        const container = document.getElementById('downloadsList');
+        
+        if (data.status === 'stopped' || !data.torrentName) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
+                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+              </svg>
+              <p>No active torrents</p>
+            </div>
+          `;
+          return;
+        }
+        
+        container.innerHTML = `
+          <div class="download-item">
+            <div class="download-header">
+              <div class="download-name">${escapeHtml(data.torrentName)}</div>
+              <span class="download-status status-${data.status}">${data.status}</span>
+            </div>
+            
+            <div class="progress-bar">
+              <div class="progress-fill" style="width: ${data.progress}%"></div>
+            </div>
+            
+            <div class="download-info">
+              <div class="info-item">
+                <span>↓</span> <span>${formatBytes(data.downloaded)}</span>
+              </div>
+              <div class="info-item">
+                <span>↑</span> <span>${formatBytes(data.uploaded)}</span>
+              </div>
+              <div class="info-item">
+                <span>Peers:</span> <span>${data.activePeers}</span>
+              </div>
+            </div>
+            
+            <div class="download-actions">
+              ${data.status === 'downloading' 
+                ? `<button class="btn-pause" onclick="pauseTorrent()">Pause</button>`
+                : `<button class="btn-resume" onclick="resumeTorrent()">Resume</button>`
+              }
+              <button class="btn-remove" onclick="removeTorrent()">Remove</button>
+            </div>
+          </div>
+        `;
+      } catch (err) {
+        console.error('Update error:', err);
+      }
+    }
+          
+    // Utility functions
     function formatSpeed(bytes) {
       if (bytes < 1024) return bytes + ' B/s';
       if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB/s';
@@ -467,7 +471,16 @@
       return div.innerHTML;
     }
 
-    statsInterval = setInterval(updateStats, 2000);
-  </script>
+    // Enter key to add torrent
+    document.getElementById('torrentInput').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        addTorrent();
+      }
+    });
+
+    // Auto-update every 2 seconds
+    updateInterval = setInterval(updateStats, 2000);
+    updateStats();
+    </script>
 </body>
 </html>
