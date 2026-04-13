@@ -6,7 +6,6 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
-// Download status structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DownloadStatus {
     pub id: String,
@@ -20,6 +19,19 @@ pub struct DownloadStatus {
     pub peers: u32,
     pub status: String,
     pub total_size: u64,
+}
+
+pub struct AppState {
+    pub downloads: Arc<Mutex<HashMap<String, DownloadStatus>>>,
+}
+
+fn main() {
+    tauri::Builder::default()
+        .manage(AppState {
+            downloads: Arc::new(Mutex::new(HashMap::new())),
+        })
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
 }
 
 // Shared state for downloads

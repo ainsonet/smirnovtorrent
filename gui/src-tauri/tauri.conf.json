@@ -3,8 +3,7 @@
     "beforeBuildCommand": "npm run build",
     "beforeDevCommand": "npm run dev",
     "devPath": "http://localhost:3000",
-    "distDir": "../dist",
-    "withGlobalTauri": true
+    "distDir": "../dist"
   },
   "package": {
     "productName": "SmirnovTorrent",
@@ -12,69 +11,10 @@
   },
   "tauri": {
     "allowlist": {
-      "all": false,
-      "shell": {
-        "all": false,
-        "open": true
-      },
-      "dialog": {
-        "all": true,
-        "ask": true,
-        "confirm": true,
-        "message": true,
-        "open": true,
-        "save": true
-      },
-      "fs": {
-        "all": true,
-        "readFile": true,
-        "writeFile": true,
-        "readDir": true,
-        "createDir": true,
-        "removeDir": true,
-        "removeFile": true,
-        "renameFile": true,
-        "exists": true
-      },
-      "path": {
-        "all": true
-      }
+      "all": true
     },
     "bundle": {
-      "active": true,
-      "targets": ["nsis"],
-      "identifier": "com.smirnovtorrent.desktop",
-      "resources": [],
-      "externalBin": [],
-      "copyright": "© 2024 SmirnovTorrent",
-      "category": "Utility",
-      "shortDescription": "Lightweight BitTorrent Client",
-      "longDescription": "SmirnovTorrent is a modern, lightweight BitTorrent client with DHT, PEX, encryption, and rate limiting.",
-      "windows": {
-        "certificateThumbprint": null,
-        "digestAlgorithm": "sha256",
-        "timestampUrl": "",
-        "nsis": {
-          "installMode": "currentUser",
-          "languages": ["English", "Russian"],
-          "displayLanguageSelector": true,
-          "installerIcon": null,
-          "headerImage": null,
-          "sidebarImage": null,
-          "license": null,
-          "template": null
-        }
-      },
-      "macOS": {
-        "entitlements": null,
-        "exceptionDomain": "",
-        "frameworks": [],
-        "providerShortName": null,
-        "signingIdentity": null
-      },
-      "deb": {
-        "depends": []
-      }
+      "active": false
     },
     "security": {
       "csp": null
@@ -87,14 +27,8 @@
         "title": "SmirnovTorrent v1.0.0",
         "width": 1200,
         "minWidth": 800,
-        "minHeight": 600,
-        "center": true,
-        "decorations": true,
-        "transparent": false
+        "minHeight": 600
       }
-    ],
-    "updater": {
-      "active": false
-    }
+    ]
   }
 }

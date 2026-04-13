@@ -14,21 +14,14 @@
       </header>
 
       <main>
-        <!-- Add Torrent Section -->
         <section class="add-torrent">
           <h2>Add Torrent</h2>
           <div class="input-group">
-            <input 
-              type="text" 
-              id="torrentPath" 
-              placeholder="Path to .torrent file or magnet link"
-            />
-            <button id="browseBtn" onclick="browseFile()">Browse</button>
+            <input type="text" id="torrentPath" placeholder="Path to .torrent file or magnet link" />
             <button id="addBtn" onclick="addTorrent()">Add</button>
           </div>
         </section>
 
-        <!-- Download Stats -->
         <section class="stats">
           <div class="stat-card">
             <div class="stat-value" id="downloadSpeed">0 KB/s</div>
@@ -42,33 +35,16 @@
             <div class="stat-value" id="activePeers">0</div>
             <div class="stat-label">Active Peers</div>
           </div>
-          <div class="stat-card">
-            <div class="stat-value" id="totalDownloaded">0 MB</div>
-            <div class="stat-label">Downloaded</div>
-          </div>
         </section>
 
-        <!-- Active Downloads -->
         <section class="downloads">
           <h2>Active Downloads</h2>
           <div id="downloadsList" class="downloads-list">
             <div class="empty-state">No active downloads</div>
           </div>
         </section>
-
-        <!-- Log -->
-        <section class="log-section">
-          <h2>Activity Log</h2>
-          <div id="logOutput" class="log-output"></div>
-          <button class="clear-btn" onclick="clearLog()">Clear Log</button>
-        </section>
       </main>
-
-      <footer>
-        <p>SmirnovTorrent Desktop GUI v1.0.0 | Built with Tauri</p>
-      </footer>
     </div>
-
     <script type="module" src="/main.js"></script>
   </body>
 </html>

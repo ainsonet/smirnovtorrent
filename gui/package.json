@@ -1,7 +1,8 @@
 {
   "name": "smirnovtorrent-gui",
+  "private": true,
   "version": "1.0.0",
-  "description": "Desktop GUI for SmirnovTorrent",
+  "description": "Desktop GUI for SmirnovTorrent BitTorrent Client",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,11 +10,9 @@
     "preview": "vite preview",
     "tauri": "tauri"
   },
-  "dependencies": {
-    "@tauri-apps/api": "^1.5.0"
-  },
   "devDependencies": {
-    "@tauri-apps/cli": "^1.5.0",
-    "vite": "^5.0.0"
-  }
+    "@tauri-apps/cli": "^1.5"
+  },
+  "dependencies": {}
+}
 }
