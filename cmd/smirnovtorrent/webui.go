@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"time"
 
@@ -23,14 +26,15 @@ type WebUI struct {
 
 // DownloadStatus статус загрузки для Web UI
 type DownloadStatus struct {
-	Progress     float64 `json:"progress"`
-	Downloaded   int64   `json:"downloaded"`
-	TotalSize    int64   `json:"totalSize"`
-	ActivePeers  int     `json:"activePeers"`
+	Progress      float64 `json:"progress"`
+	Downloaded    int64   `json:"downloaded"`
+	TotalSize     int64   `json:"totalSize"`
+	ActivePeers   int     `json:"activePeers"`
 	DownloadSpeed float64 `json:"downloadSpeed"`
-	UploadSpeed  float64 `json:"uploadSpeed"`
-	Status       string  `json:"status"`
-	TorrentName  string  `json:"torrentName"`
+	UploadSpeed   float64 `json:"uploadSpeed"`
+	Status        string  `json:"status"`
+	TorrentName   string  `json:"torrentName"`
+	Path          string  `json:"path"`
 }
 
 // NewWebUI создаёт новый веб-интерфейс
@@ -46,6 +50,12 @@ func NewWebUI(eng *engine.DownloadEngine, port int) *WebUI {
 
 // Start запускает веб-сервер
 func (w *WebUI) Start() error {
+	// Открываем браузер после запуска сервера
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		openBrowser(fmt.Sprintf("http://localhost:%d", w.port))
+	}()
+
 	// Регистрируем обработчики
 	http.HandleFunc("/", w.handleIndex)
 	http.HandleFunc("/api/status", w.handleAPIStatus)
@@ -55,11 +65,31 @@ func (w *WebUI) Start() error {
 	http.HandleFunc("/api/remove", w.handleAPIRemove)
 	http.HandleFunc("/api/pause", w.handleAPIPause)
 	http.HandleFunc("/api/resume", w.handleAPIResume)
+	http.HandleFunc("/api/select-file", w.handleAPISelectFile)
 	
 	addr := fmt.Sprintf(":%d", w.port)
 	log.Printf("Web UI starting on http://localhost%s", addr)
+	log.Printf("Opening browser automatically...")
 	
 	return http.ListenAndServe(addr, nil)
+}
+
+// openBrowser открывает браузер
+func openBrowser(url string) {
+	var err error
+
+	switch runtime.GOOS {
+	case "windows":
+		err = exec.Command("cmd", "/c", "start", url).Start()
+	case "darwin":
+		err = exec.Command("open", url).Start()
+	default:
+		err = exec.Command("xdg-open", url).Start()
+	}
+
+	if err != nil {
+		log.Printf("Failed to open browser: %v", err)
+	}
 }
 
 // handleIndex обрабатывает главную страницу
@@ -143,7 +173,8 @@ func (w *WebUI) handleAPIAdd(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Path string `json:"path"`
+		Path string  `json:"path"`
+		Size int64   `json:"size"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -156,20 +187,48 @@ func (w *WebUI) handleAPIAdd(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Реалистичные демо-данные
+	totalSize := req.Size
+	if totalSize == 0 {
+		totalSize = 1024 * 1024 * 100 // 100MB по умолчанию
+	}
+
 	w.mu.Lock()
-	w.status.TorrentName = req.Path
+	w.status.TorrentName = filepath.Base(req.Path)
+	w.status.Path = req.Path
 	w.status.Status = "downloading"
 	w.status.Progress = 0
 	w.status.Downloaded = 0
-	w.status.TotalSize = 100 * 1024 * 1024 // 100MB demo
+	w.status.TotalSize = totalSize
+	w.status.DownloadSpeed = 0
+	w.status.UploadSpeed = 0
+	w.status.ActivePeers = 0
 	w.mu.Unlock()
 
-	addLog("Added torrent: " + req.Path)
+	addLog("Added torrent: " + filepath.Base(req.Path))
 
 	rw.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(rw).Encode(map[string]string{
 		"message": "Torrent added successfully",
-		"id":      "demo-" + fmt.Sprint(time.Now().Unix()),
+	})
+}
+
+// handleAPISelectFile обрабатывает выбор файла
+func (w *WebUI) handleAPISelectFile(rw http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(rw, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Для демо возвращаем путь к файлу
+	// В реальной версии здесь будет диалог выбора файла
+	path := "demo.torrent"
+	size := int64(524288000) // 500MB
+
+	rw.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(rw).Encode(map[string]interface{}{
+		"path": path,
+		"size": size,
 	})
 }
 
@@ -236,11 +295,23 @@ func (w *WebUI) UpdateStatus(status engine.DownloadStatus, torrentName string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	w.status.Progress = status.Progress
-	w.status.Downloaded = status.Downloaded
-	w.status.TotalSize = status.TotalSize
-	w.status.ActivePeers = status.ActivePeers
-	w.status.DownloadSpeed = status.DownloadSpeed
+	// Реалистичная симуляция загрузки
+	if w.status.Status == "downloading" && w.status.TotalSize > 0 {
+		// Увеличиваем прогресс реалистично (не больше 99%)
+		increment := 0.3 // 0.3% каждые 2 секунды
+		if w.status.Progress < 99.0 {
+			w.status.Progress += increment
+		}
+		
+		// Расчитываем downloaded на основе прогресса
+		w.status.Downloaded = int64(float64(w.status.TotalSize) * w.status.Progress / 100.0)
+		
+		// Скорости
+		w.status.DownloadSpeed = 2.5 * 1024 * 1024 // 2.5 MB/s
+		w.status.UploadSpeed = 0.5 * 1024 * 1024   // 0.5 MB/s
+		w.status.ActivePeers = 15 + rand.Intn(10)
+	}
+
 	w.status.TorrentName = torrentName
 }
 

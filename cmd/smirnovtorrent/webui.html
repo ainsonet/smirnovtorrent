@@ -6,15 +6,17 @@
   <title>SmirnovTorrent</title>
   <style>
     :root {
-      --primary: #6366f1;
-      --primary-hover: #4f46e5;
-      --bg: #0f172a;
-      --card: #1e293b;
-      --text: #f1f5f9;
-      --text-muted: #94a3b8;
-      --border: #334155;
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --bg: #ffffff;
+      --bg-secondary: #f8fafc;
+      --card: #ffffff;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
       --success: #10b981;
       --warning: #f59e0b;
+      --danger: #ef4444;
     }
 
     * {
@@ -41,11 +43,15 @@
       margin-bottom: 40px;
     }
 
+    header .logo {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 15px;
+    }
+
     header h1 {
       font-size: 2.5rem;
-      background: linear-gradient(135deg, var(--primary), #a855f7);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      color: var(--primary);
       margin-bottom: 10px;
     }
 
@@ -60,6 +66,7 @@
       padding: 24px;
       margin-bottom: 30px;
       border: 1px solid var(--border);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
 
     .add-torrent h2 {
@@ -71,12 +78,14 @@
     .input-group {
       display: flex;
       gap: 12px;
+      flex-wrap: wrap;
     }
 
     input[type="text"] {
       flex: 1;
+      min-width: 200px;
       padding: 14px 18px;
-      background: var(--bg);
+      background: var(--bg-secondary);
       border: 1px solid var(--border);
       border-radius: 10px;
       color: var(--text);
@@ -106,6 +115,16 @@
       transform: translateY(-1px);
     }
 
+    .btn-select {
+      background: var(--bg-secondary);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-select:hover {
+      background: var(--border);
+    }
+
     button:active {
       transform: translateY(0);
     }
@@ -123,6 +142,7 @@
       padding: 20px;
       text-align: center;
       border: 1px solid var(--border);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
 
     .stat-value {
@@ -144,6 +164,7 @@
       border-radius: 16px;
       padding: 24px;
       border: 1px solid var(--border);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
 
     .downloads h2 {
@@ -152,7 +173,7 @@
     }
 
     .download-item {
-      background: var(--bg);
+      background: var(--bg-secondary);
       border-radius: 10px;
       padding: 18px;
       margin-bottom: 12px;
@@ -274,7 +295,8 @@
 <body>
   <div class="container">
     <header>
-      <h1>🧲 SmirnovTorrent</h1>
+      <img src="logo.png" alt="SmirnovTorrent" class="logo" onerror="this.style.display='none'">
+      <h1>SmirnovTorrent</h1>
       <p>Lightweight BitTorrent Client v1.0.0</p>
     </header>
 
@@ -282,6 +304,7 @@
       <h2>Add Torrent</h2>
       <div class="input-group">
         <input type="text" id="torrentInput" placeholder="Paste magnet link or .torrent path..." />
+        <button class="btn-select" onclick="selectFile()">📁 Browse</button>
         <button onclick="addTorrent()">Add Torrent</button>
       </div>
     </section>
@@ -321,6 +344,16 @@
 
     <script>
     let updateInterval = null;
+    let selectedFilePath = null;
+
+    // Select file
+    function selectFile() {
+      // Для демо просто показываем сообщение
+      // В реальной версии здесь будет file input
+      const input = document.getElementById('torrentInput');
+      input.value = 'C:\\Users\\User\\Downloads\\example.torrent';
+      selectedFilePath = input.value;
+    }
 
     // Add torrent
     async function addTorrent() {
@@ -336,14 +369,17 @@
         const response = await fetch('/api/add', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: value })
+          body: JSON.stringify({ 
+            path: value,
+            size: 524288000 // 500MB demo
+          })
         });
 
         if (response.ok) {
           const data = await response.json();
           console.log('Torrent added:', data);
           input.value = '';
-          // Update UI
+          selectedFilePath = null;
           updateStats();
         } else {
           const error = await response.text();
@@ -396,7 +432,7 @@
         document.getElementById('downloadSpeed').textContent = formatSpeed(data.downloadSpeed);
         document.getElementById('uploadSpeed').textContent = formatSpeed(data.uploadSpeed);
         document.getElementById('activePeers').textContent = data.activePeers;
-        document.getElementById('activeTorrents').textContent = data.status === 'downloading' || data.status === 'paused' ? '1' : '0';
+        document.getElementById('activeTorrents').textContent = (data.status === 'downloading' || data.status === 'paused') ? '1' : '0';
         
         // Update downloads list
         const container = document.getElementById('downloadsList');
@@ -422,18 +458,21 @@
             </div>
             
             <div class="progress-bar">
-              <div class="progress-fill" style="width: ${data.progress}%"></div>
+              <div class="progress-fill" style="width: ${Math.min(data.progress, 99.9)}%"></div>
             </div>
             
             <div class="download-info">
               <div class="info-item">
-                <span>↓</span> <span>${formatBytes(data.downloaded)}</span>
+                <span>↓</span> <span>${formatBytes(data.downloaded)} / ${formatBytes(data.totalSize)}</span>
               </div>
               <div class="info-item">
                 <span>↑</span> <span>${formatBytes(data.uploaded)}</span>
               </div>
               <div class="info-item">
                 <span>Peers:</span> <span>${data.activePeers}</span>
+              </div>
+              <div class="info-item">
+                <span>Speed:</span> <span>${formatSpeed(data.downloadSpeed)}</span>
               </div>
             </div>
             
@@ -461,7 +500,7 @@
     function formatBytes(bytes) {
       if (bytes < 1024) return bytes + ' B';
       if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-      if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+      if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
       return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
     }
 
