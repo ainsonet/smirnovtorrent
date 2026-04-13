@@ -9,13 +9,19 @@
 - ✅ Parse .torrent files
 - ✅ Bencode encoding/decoding
 - ✅ Tracker protocol support
-- ✅ DHT network support (experimental)
-- ✅ Magnet link support (partial)
+- ✅ DHT network support (BEP 5)
+- ✅ Magnet link support (BEP 9)
 - ✅ Multi-file torrents
 - ✅ Piece verification with SHA-1
-- ✅ Rate limiting
-- ✅ Encryption (MSE/PE)
+- ✅ Rate limiting (token bucket)
+- ✅ Encryption (MSE/PE - BEP 47)
 - ✅ CLI with progress bar
+- ✅ Web UI (real-time)
+- ✅ Desktop GUI (Tauri) ✨ NEW
+- ✅ PEX (Peer Exchange - BEP 11)
+- ✅ Resume support
+- ✅ Structured logging
+- ✅ JSON configuration
 
 ## 📦 Installation
 
@@ -56,12 +62,36 @@ Open http://localhost:8080 in your browser to access the Web UI with:
 - Start/stop controls
 - Activity log
 
+### Desktop GUI (NEW!)
+
+Launch the desktop application for a native experience:
+
+```bash
+cd gui
+npm install
+npm run tauri dev
+```
+
+Features:
+- 🎨 Modern dark theme UI
+- 📊 Real-time statistics
+- 🎯 Visual progress bars
+- ⏯️ Pause/resume controls
+- 🔍 File browser integration
+- 📝 Activity log
+
+See [gui/README.md](gui/README.md) for detailed setup instructions.
+
 ## 🏗️ Project Structure
 
 ```
 smirnovtorrent/
 ├── cmd/
 │   └── smirnovtorrent/     # CLI application
+├── gui/                    # Desktop GUI (Tauri) ✨
+│   ├── src-tauri/         # Rust backend
+│   ├── public/            # Frontend assets
+│   └── README.md          # GUI documentation
 ├── internal/
 │   ├── dht/               # DHT network client
 │   ├── engine/            # Download engine
@@ -70,7 +100,9 @@ smirnovtorrent/
 │   ├── parser/            # Torrent file parser
 │   ├── peer/              # BitTorrent peer protocol
 │   ├── tracker/           # Tracker protocol client
-│   └── ...
+│   ├── config/            # Configuration management
+│   ├── logger/            # Structured logging
+│   └── ratelimit/         # Rate limiting
 └── pkg/
     └── bencode/           # Public bencode package
 ```
@@ -92,8 +124,8 @@ go test -tags e2e -v -timeout 5m ./cmd/smirnovtorrent
 
 | Module | Status | Tests |
 |--------|--------|-------|
-| Parser | ✅ Complete | 6/6 |
-| Engine | ✅ Complete | 16/16 |
+| Parser | ✅ Complete | 6/6 + 2 bench |
+| Engine | ✅ Complete | 24/24 |
 | Encryption | ✅ Full Integration | 6/6 |
 | Tracker | ✅ Working | ✓ |
 | DHT | ✅ Kademlia + Iterative | ✓ |
@@ -101,11 +133,15 @@ go test -tags e2e -v -timeout 5m ./cmd/smirnovtorrent
 | PEX | ✅ BEP 11 | ✓ |
 | Peer | ✅ Working | ✓ |
 | Web UI | ✅ v0.8.0 | - |
+| **Desktop GUI** | ✅ **v1.0.0 (Tauri)** | - |
 | **Resume** | ✅ **Graceful Shutdown** | ✓ |
+| **Config** | ✅ **Integrated** | 5/5 |
+| **Logger** | ✅ **Structured** | 4/4 |
+| **RateLimit** | ✅ **Token Bucket** | 8/8 + 2 bench |
 
-**Total: 28+ tests passing**
+**Total: 50+ tests passing** (45 unit + 5 E2E)
 
-**Current version: v0.14.0**
+**Current version: v1.0.0** 🎉
 
 ## 📝 Roadmap
 
@@ -117,20 +153,24 @@ go test -tags e2e -v -timeout 5m ./cmd/smirnovtorrent
 - [x] Multi-file support
 - [x] Rarest-first algorithm
 - [x] Seed mode
-- [x] Magnet links (parse)
-- [x] DHT bootstrap
-- [x] Kademlia routing table (v0.9.0)
-- [x] DHT iterative lookup (v0.10.0)
-- [x] Magnet metadata download (BEP 9)
-- [x] PEX (Peer Exchange) (v0.11.0)
-- [x] BitTorrent encryption (BEP 47) (v0.12.0)
-- [x] Full encryption integration (v0.13.0)
-- [x] **Graceful shutdown & resume** (v0.14.0)
-- [x] Rate limiting
-- [x] Resume support
-- [x] **Web UI** (v0.8.0)
-- [ ] Desktop GUI (Tauri)
-- [ ] Production E2E testing
+- [x] Magnet links (BEP 9)
+- [x] DHT bootstrap (BEP 5)
+- [x] Kademlia routing table
+- [x] DHT iterative lookup
+- [x] PEX (Peer Exchange - BEP 11)
+- [x] BitTorrent encryption (BEP 47)
+- [x] Graceful shutdown & resume
+- [x] Rate limiting (token bucket)
+- [x] Configuration system
+- [x] Structured logging
+- [x] Web UI
+- [x] **Desktop GUI (Tauri)** ✨
+- [x] **E2E testing**
+- [x] **CI/CD pipeline**
+- [ ] Advanced statistics dashboard
+- [ ] WebTorrent support
+- [ ] IPv6 support
+- [ ] Plugin system
 
 ## 📄 License
 
