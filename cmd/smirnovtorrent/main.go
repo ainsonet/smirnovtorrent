@@ -1,9 +1,11 @@
 package main
 
 import (
+	"embed"
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"smirnovtorrent/internal/config"
 	"smirnovtorrent/internal/dht"
@@ -12,6 +14,9 @@ import (
 	"smirnovtorrent/internal/magnet"
 	"smirnovtorrent/internal/parser"
 )
+
+//go:embed webui.html
+var webUIAssets embed.FS
 
 const version = "1.0.0"
 
@@ -390,5 +395,30 @@ func formatBytesFloat(bytes float64) string {
 	}
 	suffixes := []string{"KB", "MB", "GB", "TB"}
 	return fmt.Sprintf("%.1f %s", bytes/div, suffixes[exp])
+}
+
+// ProgressBar прогресс бар для CLI
+type ProgressBar struct {
+	width int
+}
+
+// NewProgressBar создаёт новый прогресс бар
+func NewProgressBar(width int) *ProgressBar {
+	return &ProgressBar{width: width}
+}
+
+// Show показывает прогресс
+func (pb *ProgressBar) Show(progress float64, current, total, peers int, speed float64) {
+	// Простой вывод в консоль
+	fmt.Printf("\r[%s] %6.2f%% | Peers: %3d | Speed: %8s/s", 
+		strings.Repeat("=", int(progress/100*float64(pb.width))) + ">",
+		progress,
+		peers,
+		formatBytesFloat(speed))
+}
+
+// Finish завершает прогресс бар
+func (pb *ProgressBar) Finish() {
+	fmt.Println()
 }
 

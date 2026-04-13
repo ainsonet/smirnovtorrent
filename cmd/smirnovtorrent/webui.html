@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmirnovTorrent</title>
+  <style>
+    :root {
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --bg: #0f172a;
+      --card: #1e293b;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --border: #334155;
+      --success: #10b981;
+      --warning: #f59e0b;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    header h1 {
+      font-size: 2.5rem;
+      background: linear-gradient(135deg, var(--primary), #a855f7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 10px;
+    }
+
+    header p {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+    }
+
+    .add-torrent {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 30px;
+      border: 1px solid var(--border);
+    }
+
+    .add-torrent h2 {
+      font-size: 1.2rem;
+      margin-bottom: 16px;
+      color: var(--text);
+    }
+
+    .input-group {
+      display: flex;
+      gap: 12px;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      padding: 14px 18px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 1rem;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    button {
+      padding: 14px 28px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    button:hover {
+      background: var(--primary-hover);
+      transform: translateY(-1px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 30px;
+    }
+
+    .stat-card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      border: 1px solid var(--border);
+    }
+
+    .stat-value {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 4px;
+    }
+
+    .stat-label {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .downloads {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 24px;
+      border: 1px solid var(--border);
+    }
+
+    .downloads h2 {
+      font-size: 1.2rem;
+      margin-bottom: 20px;
+    }
+
+    .download-item {
+      background: var(--bg);
+      border-radius: 10px;
+      padding: 18px;
+      margin-bottom: 12px;
+      border: 1px solid var(--border);
+    }
+
+    .download-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+
+    .download-name {
+      font-weight: 600;
+      font-size: 1rem;
+      flex: 1;
+    }
+
+    .download-status {
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .status-downloading {
+      background: rgba(99, 102, 241, 0.2);
+      color: var(--primary);
+    }
+
+    .status-paused {
+      background: rgba(245, 158, 11, 0.2);
+      color: var(--warning);
+    }
+
+    .progress-bar {
+      height: 8px;
+      background: var(--card);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), #a855f7);
+      border-radius: 4px;
+      transition: width 0.5s ease;
+    }
+
+    .download-info {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .info-item span:first-child {
+      color: var(--text-muted);
+    }
+
+    .info-item span:last-child {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .download-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .download-actions button {
+      padding: 8px 16px;
+      font-size: 0.85rem;
+    }
+
+    .btn-pause {
+      background: var(--warning);
+    }
+
+    .btn-pause:hover {
+      background: #d97706;
+    }
+
+    .btn-resume {
+      background: var(--success);
+    }
+
+    .btn-resume:hover {
+      background: #059669;
+    }
+
+    .btn-remove {
+      background: #ef4444;
+    }
+
+    .btn-remove:hover {
+      background: #dc2626;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: var(--text-muted);
+    }
+
+    .empty-state svg {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🧲 SmirnovTorrent</h1>
+      <p>Lightweight BitTorrent Client v1.0.0</p>
+    </header>
+
+    <section class="add-torrent">
+      <h2>Add Torrent</h2>
+      <div class="input-group">
+        <input type="text" id="torrentInput" placeholder="Paste magnet link or .torrent path..." />
+        <button onclick="addTorrent()">Add Torrent</button>
+      </div>
+    </section>
+
+    <section class="stats">
+      <div class="stat-card">
+        <div class="stat-value" id="downloadSpeed">0 KB/s</div>
+        <div class="stat-label">Download</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="uploadSpeed">0 KB/s</div>
+        <div class="stat-label">Upload</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="activePeers">0</div>
+        <div class="stat-label">Peers</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="activeTorrents">0</div>
+        <div class="stat-label">Torrents</div>
+      </div>
+    </section>
+
+    <section class="downloads">
+      <h2>Active Torrents</h2>
+      <div id="downloadsList">
+        <div class="empty-state">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
+                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+          </svg>
+          <p>No active torrents</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    let downloads = [];
+    let statsInterval = null;
+
+    function addTorrent() {
+      const input = document.getElementById('torrentInput');
+      const value = input.value.trim();
+      
+      if (!value) return;
+
+      const id = 'torrent-' + Date.now();
+      const name = value.includes('magnet:') ? value.substring(0, 50) + '...' : value.split('/').pop();
+      
+      downloads.push({
+        id,
+        name,
+        value,
+        progress: 0,
+        downloaded: 0,
+        uploaded: 0,
+        downloadSpeed: 0,
+        uploadSpeed: 0,
+        peers: 0,
+        status: 'downloading'
+      });
+
+      input.value = '';
+      renderDownloads();
+    }
+
+    function pauseTorrent(id) {
+      const torrent = downloads.find(d => d.id === id);
+      if (torrent) torrent.status = 'paused';
+      renderDownloads();
+    }
+
+    function resumeTorrent(id) {
+      const torrent = downloads.find(d => d.id === id);
+      if (torrent) torrent.status = 'downloading';
+      renderDownloads();
+    }
+
+    function removeTorrent(id) {
+      downloads = downloads.filter(d => d.id !== id);
+      renderDownloads();
+    }
+
+    function renderDownloads() {
+      const container = document.getElementById('downloadsList');
+      
+      if (downloads.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
+                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+            </svg>
+            <p>No active torrents</p>
+          </div>
+        `;
+        document.getElementById('activeTorrents').textContent = '0';
+        return;
+      }
+
+      container.innerHTML = downloads.map(dl => `
+        <div class="download-item">
+          <div class="download-header">
+            <div class="download-name">${escapeHtml(dl.name)}</div>
+            <span class="download-status status-${dl.status}">${dl.status}</span>
+          </div>
+          
+          <div class="progress-bar">
+            <div class="progress-fill" style="width: ${dl.progress}%"></div>
+          </div>
+          
+          <div class="download-info">
+            <div class="info-item">
+              <span>↓</span> <span>${formatBytes(dl.downloaded)}</span>
+            </div>
+            <div class="info-item">
+              <span>↑</span> <span>${formatBytes(dl.uploaded)}</span>
+            </div>
+            <div class="info-item">
+              <span>Peers:</span> <span>${dl.peers}</span>
+            </div>
+          </div>
+          
+          <div class="download-actions">
+            ${dl.status === 'downloading' 
+              ? `<button class="btn-pause" onclick="pauseTorrent('${dl.id}')">Pause</button>`
+              : `<button class="btn-resume" onclick="resumeTorrent('${dl.id}')">Resume</button>`
+            }
+            <button class="btn-remove" onclick="removeTorrent('${dl.id}')">Remove</button>
+          </div>
+        </div>
+      `).join('');
+
+      document.getElementById('activeTorrents').textContent = downloads.length;
+    }
+
+    function updateStats() {
+      downloads.forEach(dl => {
+        if (dl.status === 'downloading') {
+          dl.progress = Math.min(100, dl.progress + 0.5);
+          dl.downloaded += dl.downloadSpeed;
+          dl.uploaded += dl.uploadSpeed;
+          dl.peers = Math.floor(Math.random() * 20) + 5;
+          dl.downloadSpeed = Math.floor(Math.random() * 2 * 1024 * 1024);
+          dl.uploadSpeed = Math.floor(Math.random() * 512 * 1024);
+        }
+      });
+
+      const totalDownload = downloads
+        .filter(d => d.status === 'downloading')
+        .reduce((sum, d) => sum + d.downloadSpeed, 0);
+      const totalUpload = downloads
+        .filter(d => d.status === 'downloading')
+        .reduce((sum, d) => sum + d.uploadSpeed, 0);
+      const totalPeers = downloads
+        .filter(d => d.status === 'downloading')
+        .reduce((sum, d) => sum + d.peers, 0);
+
+      document.getElementById('downloadSpeed').textContent = formatSpeed(totalDownload);
+      document.getElementById('uploadSpeed').textContent = formatSpeed(totalUpload);
+      document.getElementById('activePeers').textContent = totalPeers;
+
+      renderDownloads();
+    }
+
+    function formatSpeed(bytes) {
+      if (bytes < 1024) return bytes + ' B/s';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB/s';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB/s';
+    }
+
+    function formatBytes(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+      return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    statsInterval = setInterval(updateStats, 2000);
+  </script>
+</body>
+</html>
