@@ -15,7 +15,8 @@
     },
     "bundle": {
       "active": false,
-      "identifier": "com.smirnovtorrent.app"
+      "identifier": "com.smirnovtorrent.app",
+      "icon": []
     },
     "security": {
       "csp": null
