@@ -2,6 +2,7 @@
 
 **Current Version**: v0.14.0  
 **Status**: Production Ready (~98%)  
+**Last Updated**: 2024
 
 ## 🎯 Project Overview
 
@@ -9,20 +10,22 @@ SmirnovTorrent is a lightweight, high-performance BitTorrent client written in G
 
 ## 📊 Module Status
 
-| Module | Status | Tests |
-|--------|--------|-------|
-| Parser | ✅ Complete | 6/6 |
-| Engine | ✅ Complete | 16/16 |
-| Encryption | ✅ Full Integration | 6/6 |
-| Tracker | ✅ Working | ✓ |
-| DHT | ✅ Kademlia + Iterative | ✓ |
-| Magnet | ✅ Metadata (BEP 9) | ✓ |
-| PEX | ✅ BEP 11 | ✓ |
-| Peer | ✅ Working | ✓ |
-| Web UI | ✅ v0.8.0 | - |
-| Resume | ✅ Graceful Shutdown | ✓ |
+| Module | Status | Tests | Completion |
+|--------|--------|-------|------------|
+| Parser | ✅ Complete | 6/6 + 2 bench | 98% |
+| Engine | ✅ Complete | 16/16 | 95% |
+| Encryption | ✅ Full Integration | 6/6 | 90% |
+| Tracker | ✅ Working | ✓ | 90% |
+| DHT | ✅ Kademlia + Iterative | ✓ | 90% |
+| Magnet | ✅ Metadata (BEP 9) | ✓ | 85% |
+| PEX | ✅ BEP 11 | ✓ | 90% |
+| Peer | ✅ Working | ✓ | 90% |
+| Web UI | ✅ v0.8.0 | - | 90% |
+| Resume | ✅ Graceful Shutdown | ✓ | 95% |
+| **Config** | ✅ **New** | 5/5 | 100% |
+| **Logger** | ✅ **New** | 4/4 | 100% |
 
-**Total: 28+ tests passing**
+**Total: 37+ tests passing**
 
 ## 📋 Implemented BEPs
 
@@ -42,11 +45,13 @@ smirnovtorrent/
 ├── .github/workflows/ci.yml    # CI/CD pipeline
 ├── cmd/smirnovtorrent/         # CLI + Web UI
 ├── internal/
+│   ├── config/                 # Configuration management ⭐ NEW
 │   ├── dht/                    # Kademlia DHT
 │   ├── engine/                 # Download engine
 │   ├── encryption/             # MSE encryption
+│   ├── logger/                 # Structured logging ⭐ NEW
 │   ├── magnet/                 # Magnet metadata
-│   ├── parser/                 # Torrent parser
+│   ├── parser/                 # Torrent parser + benchmarks
 │   ├── peer/                   # Peer protocol + PEX
 │   └── tracker/                # Tracker client
 ├── pkg/bencode/                # Bencode encoder/decoder
@@ -70,11 +75,19 @@ make test
 ./bin/smirnovtorrent download file.torrent
 ```
 
+## 📈 Performance Benchmarks
+
+```
+BenchmarkParseMinimalTorrent      272367    5620 ns/op    2801 B/op
+BenchmarkParseMultiFileTorrent     10000  110497 ns/op   60572 B/op
+```
+
 ## 📈 Remaining Work for v1.0.0
 
 - [ ] Desktop GUI (Tauri)
 - [ ] Production E2E testing
-- [ ] Performance benchmarking
+- [ ] Performance benchmarking (more modules)
+- [ ] Config integration in CLI
 
 ---
 
