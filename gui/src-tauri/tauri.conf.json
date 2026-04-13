@@ -38,11 +38,6 @@
       },
       "path": {
         "all": true
-      },
-      "process": {
-        "all": true,
-        "exit": true,
-        "spawn": true
       }
     },
     "bundle": {
