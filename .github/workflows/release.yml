@@ -25,7 +25,7 @@ jobs:
       
       - name: Install dependencies
         working-directory: gui
-        run: npm ci
+        run: npm install
       
       - name: Build Tauri App
         uses: tauri-apps/tauri-action@v0
