@@ -1,0 +1,151 @@
+name: Build Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install Rust
+        uses: dtolnay/rust-action@stable
+        with:
+          toolchain: stable
+          target: x86_64-pc-windows-msvc
+      
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      
+      - name: Install dependencies
+        working-directory: gui
+        run: npm ci
+      
+      - name: Build Tauri
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: gui
+          args: --bundles nsis
+      
+      - name: Upload Windows Installer
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: gui/src-tauri/target/release/bundle/nsis/SmirnovTorrent_*_x64-setup.exe
+          asset_name: SmirnovTorrent_${{ github.event.release.tag_name }}_x64-setup.exe
+          asset_content_type: application/x-msdownload
+      
+      - name: Upload Portable EXE
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: gui/src-tauri/target/release/SmirnovTorrent.exe
+          asset_name: SmirnovTorrent_${{ github.event.release.tag_name }}_portable.exe
+          asset_content_type: application/x-msdownload
+
+  build-linux:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install Rust
+        uses: dtolnay/rust-action@stable
+      
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      
+      - name: Install dependencies
+        working-directory: gui
+        run: npm ci
+      
+      - name: Build Tauri
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: gui
+      
+      - name: Upload Linux AppImage
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: gui/src-tauri/target/release/bundle/appimage/SmirnovTorrent_*_x86_64.AppImage
+          asset_name: SmirnovTorrent_${{ github.event.release.tag_name }}_x86_64.AppImage
+          asset_content_type: application/x-executable
+      
+      - name: Upload Linux DEB
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: gui/src-tauri/target/release/bundle/deb/SmirnovTorrent_*_x86_64.deb
+          asset_name: SmirnovTorrent_${{ github.event.release.tag_name }}_x86_64.deb
+          asset_content_type: application/vnd.debian.binary-package
+
+  build-macos:
+    runs-on: macos-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install Rust
+        uses: dtolnay/rust-action@stable
+      
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      
+      - name: Install dependencies
+        working-directory: gui
+        run: npm ci
+      
+      - name: Build Tauri
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: gui
+      
+      - name: Upload macOS DMG
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: gui/src-tauri/target/release/bundle/dmg/SmirnovTorrent_*_x64.dmg
+          asset_name: SmirnovTorrent_${{ github.event.release.tag_name }}_macos.dmg
+          asset_content_type: application/x-apple-diskimage
