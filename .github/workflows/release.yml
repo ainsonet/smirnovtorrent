@@ -12,32 +12,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      
-      - name: Setup Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-      
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.21'
       
-      - name: Install dependencies
+      - name: Install Fyne
+        run: |
+          go install fyne.io/fyne/v2/cmd/fyne@latest
+          $env:PATH = "$env:GOPATH\bin;$env:PATH"
+      
+      - name: Build GUI
         working-directory: gui
-        run: npm install
+        run: |
+          go mod tidy
+          fyne package -os windows -icon ../README.md
       
-      - name: Build Tauri App
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          projectPath: gui
-      
-      - name: Upload Portable App
+      - name: Upload GUI App
         uses: actions/upload-artifact@v4
         with:
-          name: SmirnovTorrent
-          path: gui/src-tauri/target/release/SmirnovTorrent.exe
+          name: SmirnovTorrent-GUI
+          path: gui/SmirnovTorrent.exe
