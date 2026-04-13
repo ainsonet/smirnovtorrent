@@ -59,13 +59,11 @@ smirnovtorrent download <torrent|magnet> [flags]
 
 **Flags:**
 - `-o, --output string` - Output directory (default: current directory)
-- `-p, --port int` - Peer port (default: 6881)
-- `--dht` - Enable DHT peer discovery
-- `--pex` - Enable Peer Exchange
-- `--encrypt` - Enable encryption (default: true)
-- `--resume` - Enable resume support (default: true)
-- `--download-limit int` - Download speed limit in KB/s
-- `--upload-limit int` - Upload speed limit in KB/s
+- `-download-limit int` - Download speed limit in bytes/sec (0 = unlimited)
+- `-upload-limit int` - Upload speed limit in bytes/sec (0 = unlimited)
+- `--dht` - Enable DHT peer discovery (default: true)
+- `--pex` - Enable Peer Exchange (default: true)
+- `--encrypt` - Enable MSE encryption (default: true)
 
 **Examples:**
 
@@ -76,11 +74,22 @@ smirnovtorrent download ubuntu-22.04.torrent
 # Download with custom output
 smirnovtorrent download magnet:?xt=urn:btih:HASH -o ~/Downloads
 
-# Download with speed limits
-smirnovtorrent download file.torrent --download-limit 1024 --upload-limit 512
+# Download with speed limits (1 MB/s download, 512 KB/s upload)
+smirnovtorrent download file.torrent \
+  --download-limit 1048576 \
+  --upload-limit 524288
 
 # Download with DHT and PEX enabled
 smirnovtorrent download file.torrent --dht --pex
+
+# Download with all options
+smirnovtorrent download file.torrent \
+  -o ~/Downloads \
+  --download-limit 1048576 \
+  --upload-limit 524288 \
+  --dht \
+  --pex \
+  --encrypt
 ```
 
 #### `webui` - Start Web UI server
