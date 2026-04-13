@@ -40,11 +40,10 @@
         "all": true
       }
     },
-      "bundle": {
+    "bundle": {
       "active": true,
       "targets": ["nsis"],
       "identifier": "com.smirnovtorrent.desktop",
-      "icon": [],
       "resources": [],
       "externalBin": [],
       "copyright": "© 2024 SmirnovTorrent",
