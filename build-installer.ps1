@@ -11,28 +11,28 @@ Write-Host "[1/5] Checking prerequisites..." -ForegroundColor Yellow
 
 # Check Node.js
 try {
-    $nodeVersion = node --version
-    Write-Host "  ✓ Node.js: $nodeVersion" -ForegroundColor Green
+    $nodeVersion = node --version 2>&1
+    Write-Host "  [OK] Node.js: $nodeVersion" -ForegroundColor Green
 } catch {
-    Write-Host "  ✗ Node.js not found. Please install from https://nodejs.org/" -ForegroundColor Red
+    Write-Host "  [ERROR] Node.js not found. Please install from https://nodejs.org/" -ForegroundColor Red
     exit 1
 }
 
 # Check npm
 try {
-    $npmVersion = npm --version
-    Write-Host "  ✓ npm: v$npmVersion" -ForegroundColor Green
+    $npmVersion = npm --version 2>&1
+    Write-Host "  [OK] npm: v$npmVersion" -ForegroundColor Green
 } catch {
-    Write-Host "  ✗ npm not found" -ForegroundColor Red
+    Write-Host "  [ERROR] npm not found" -ForegroundColor Red
     exit 1
 }
 
 # Check Rust
 try {
-    $rustVersion = rustc --version
-    Write-Host "  ✓ Rust: $rustVersion" -ForegroundColor Green
+    $rustVersion = rustc --version 2>&1
+    Write-Host "  [OK] Rust: $rustVersion" -ForegroundColor Green
 } catch {
-    Write-Host "  ✗ Rust not found. Please install from https://rustup.rs/" -ForegroundColor Red
+    Write-Host "  [ERROR] Rust not found. Please install from https://rustup.rs/" -ForegroundColor Red
     exit 1
 }
 
@@ -99,5 +99,4 @@ if (Test-Path (Join-Path $bundleDir "msi")) {
     }
 }
 
-Write-Host "Press any key to exit..."
-$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+Write-Host "Build completed!" -ForegroundColor Green
