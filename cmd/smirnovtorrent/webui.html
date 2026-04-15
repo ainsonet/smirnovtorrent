@@ -6,17 +6,28 @@
   <title>SmirnovTorrent</title>
   <style>
     :root {
-      --primary: #4f46e5;
-      --primary-hover: #4338ca;
+      --primary: #0ea5e9;
+      --primary-hover: #0284c7;
+      --bg: #0f172a;
+      --bg-secondary: #1e293b;
+      --card: #1e293b;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --border: #334155;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+    }
+
+    [data-theme="light"] {
+      --primary: #0ea5e9;
+      --primary-hover: #0284c7;
       --bg: #ffffff;
-      --bg-secondary: #f8fafc;
+      --bg-secondary: #f1f5f9;
       --card: #ffffff;
       --text: #1e293b;
       --text-muted: #64748b;
       --border: #e2e8f0;
-      --success: #10b981;
-      --warning: #f59e0b;
-      --danger: #ef4444;
     }
 
     * {
@@ -31,6 +42,7 @@
       color: var(--text);
       min-height: 100vh;
       padding: 40px 20px;
+      transition: background 0.3s, color 0.3s;
     }
 
     .container {
@@ -41,12 +53,31 @@
     header {
       text-align: center;
       margin-bottom: 40px;
+      position: relative;
+    }
+
+    header .theme-toggle {
+      position: absolute;
+      top: 0;
+      right: 0;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1.2rem;
+      transition: all 0.2s;
+    }
+
+    header .theme-toggle:hover {
+      background: var(--border);
     }
 
     header .logo {
-      width: 80px;
-      height: 80px;
+      width: 100px;
+      height: 100px;
       margin-bottom: 15px;
+      border-radius: 12px;
     }
 
     header h1 {
@@ -211,6 +242,11 @@
       color: var(--warning);
     }
 
+    .status-seeding {
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--success);
+    }
+
     .progress-bar {
       height: 8px;
       background: var(--card);
@@ -271,11 +307,21 @@
     }
 
     .btn-remove {
-      background: #ef4444;
+      background-color: #ef4444;
+      color: white;
     }
 
     .btn-remove:hover {
-      background: #dc2626;
+      background-color: #dc2626;
+    }
+
+    .btn-open-folder {
+      background-color: #8b5cf6;
+      color: white;
+    }
+
+    .btn-open-folder:hover {
+      background-color: #7c3aed;
     }
 
     .empty-state {
@@ -295,7 +341,8 @@
 <body>
   <div class="container">
     <header>
-      <img src="logo.png" alt="SmirnovTorrent" class="logo" onerror="this.style.display='none'">
+      <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌙</button>
+      <img src="/logo2.png" alt="SmirnovTorrent" class="logo" onerror="this.style.display='none'">
       <h1>SmirnovTorrent</h1>
       <p>Lightweight BitTorrent Client v1.0.0</p>
     </header>
@@ -303,10 +350,12 @@
     <section class="add-torrent">
       <h2>Add Torrent</h2>
       <div class="input-group">
-        <input type="text" id="torrentInput" placeholder="Paste magnet link or .torrent path..." />
-        <button class="btn-select" onclick="selectFile()">📁 Browse</button>
+        <input type="text" id="torrentInput" placeholder="Or paste .torrent file path..." />
+        <input type="file" id="fileInput" accept=".torrent" style="display: none;" onchange="handleFileSelect(event)" />
+        <button class="btn-select" onclick="document.getElementById('fileInput').click()">📁 Browse</button>
         <button onclick="addTorrent()">Add Torrent</button>
       </div>
+      <div id="fileInfo" style="margin-top: 10px; color: var(--text-muted); font-size: 0.9rem;"></div>
     </section>
 
     <section class="stats">
@@ -345,34 +394,71 @@
     <script>
     let updateInterval = null;
     let selectedFilePath = null;
+    let currentTheme = 'dark';
 
-    // Select file
-    function selectFile() {
-      // Для демо просто показываем сообщение
-      // В реальной версии здесь будет file input
-      const input = document.getElementById('torrentInput');
-      input.value = 'C:\\Users\\User\\Downloads\\example.torrent';
-      selectedFilePath = input.value;
+    // Toggle theme
+    function toggleTheme() {
+      currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      document.body.setAttribute('data-theme', currentTheme);
+      document.querySelector('.theme-toggle').textContent = currentTheme === 'dark' ? '☀️' : '🌙';
     }
 
-    // Add torrent
+    // Handle file selection
+    function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (file) {
+        selectedFilePath = file;
+        document.getElementById('torrentInput').value = file.name;
+        document.getElementById('fileInfo').textContent = `Selected: ${file.name} (${formatBytes(file.size)})`;
+      }
+    }
+
+// Add torrent
     async function addTorrent() {
       const input = document.getElementById('torrentInput');
-      const value = input.value.trim();
+      const inputValue = input.value.trim();
       
-      if (!value) {
-        alert('Please enter a magnet link or .torrent path');
+      if (!inputValue) {
+        alert('Please select a .torrent file');
         return;
       }
 
       try {
+        // Если файл был выбран через Browse, отправляем его как FormData
+        if (selectedFilePath && selectedFilePath instanceof File) {
+          const formData = new FormData();
+          formData.append('torrent', selectedFilePath);
+          
+          console.log('Uploading torrent file:', selectedFilePath.name);
+          
+          const response = await fetch('/api/add', {
+            method: 'POST',
+            body: formData
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            console.log('Torrent added:', data);
+            input.value = '';
+            selectedFilePath = null;
+            document.getElementById('fileInput').value = '';
+            document.getElementById('fileInfo').textContent = '';
+            setTimeout(updateStats, 500);
+          } else {
+            const error = await response.text();
+            console.error('Error adding torrent:', error);
+            alert('Error: ' + error);
+          }
+          return;
+        }
+        
+        // Иначе используем путь из поля ввода
+        console.log('Adding torrent from path:', inputValue);
+        
         const response = await fetch('/api/add', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            path: value,
-            size: 524288000 // 500MB demo
-          })
+          body: JSON.stringify({ path: inputValue })
         });
 
         if (response.ok) {
@@ -380,16 +466,20 @@
           console.log('Torrent added:', data);
           input.value = '';
           selectedFilePath = null;
-          updateStats();
+          document.getElementById('fileInput').value = '';
+          document.getElementById('fileInfo').textContent = '';
+          setTimeout(updateStats, 500);
         } else {
           const error = await response.text();
+          console.error('Error adding torrent:', error);
           alert('Error: ' + error);
         }
       } catch (err) {
+        console.error('Failed to add torrent:', err);
         alert('Failed to add torrent: ' + err.message);
       }
     }
-
+          
     // Pause torrent
     async function pauseTorrent() {
       try {
@@ -412,32 +502,63 @@
 
     // Remove torrent
     async function removeTorrent() {
-      if (!confirm('Remove this torrent?')) return;
-      
+      if (!confirm('Remove torrent and stop downloading?')) return;
+
       try {
         await fetch('/api/remove', { method: 'POST' });
-        updateStats();
+        setTimeout(updateStats, 500);
       } catch (err) {
-        console.error('Remove error:', err);
+        console.error('Failed to remove torrent:', err);
       }
     }
 
+    // Open folder with downloaded files
+    async function openFolder() {
+      try {
+        const response = await fetch('/api/open-folder', { method: 'POST' });
+        const data = await response.json();
+        console.log('Folder opened:', data.path);
+        // Не показываем alert об успехе - папка уже открылась
+      } catch (err) {
+        console.error('Failed to open folder:', err);
+        // Даже если ошибка в fetch, explorer мог открыться
+        console.log('Explorer may have opened despite error');
+      }
+    }
+          
     // Update statistics
     async function updateStats() {
       try {
         const response = await fetch('/api/status');
         const data = await response.json();
         
+        // Debug output
+        console.log('Status response:', JSON.stringify(data));
+        
+        // Handle null/undefined values
+        const downloadSpeed = data.downloadSpeed || 0;
+        const uploadSpeed = data.uploadSpeed || 0;
+        const activePeers = data.activePeers || 0;
+        const progress = data.progress || 0;
+        const downloaded = data.downloaded || 0;
+        const uploaded = data.uploaded || 0;
+        const totalSize = data.totalSize || 0;
+        const status = data.status || 'stopped';
+        const torrentName = data.torrentName || '';
+        
+        // Debug - show status in console
+        console.log('Status:', status, 'Progress:', progress, 'Total:', totalSize);
+        
         // Update stats cards
-        document.getElementById('downloadSpeed').textContent = formatSpeed(data.downloadSpeed);
-        document.getElementById('uploadSpeed').textContent = formatSpeed(data.uploadSpeed);
-        document.getElementById('activePeers').textContent = data.activePeers;
-        document.getElementById('activeTorrents').textContent = (data.status === 'downloading' || data.status === 'paused') ? '1' : '0';
+        document.getElementById('downloadSpeed').textContent = formatSpeed(downloadSpeed);
+        document.getElementById('uploadSpeed').textContent = formatSpeed(uploadSpeed);
+        document.getElementById('activePeers').textContent = activePeers;
+        document.getElementById('activeTorrents').textContent = (status === 'downloading' || status === 'completed' || status === 'seeding') ? '1' : '0';
         
         // Update downloads list
         const container = document.getElementById('downloadsList');
         
-        if (data.status === 'stopped' || !data.torrentName) {
+        if (status === 'stopped' || status === 'initializing' || !torrentName) {
           container.innerHTML = `
             <div class="empty-state">
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -450,36 +571,50 @@
           return;
         }
         
+        const displayProgress = Math.min(progress, 99.9);
+        
+        // Показываем статус seeding если 100%
+        let displayStatus = status;
+        if (progress >= 100 && (status === 'downloading' || status === 'completed')) {
+          displayStatus = 'seeding';
+        }
+        
         container.innerHTML = `
           <div class="download-item">
             <div class="download-header">
-              <div class="download-name">${escapeHtml(data.torrentName)}</div>
-              <span class="download-status status-${data.status}">${data.status}</span>
+              <div class="download-name">${escapeHtml(torrentName)}</div>
+              <span class="download-status status-${displayStatus}">${displayStatus}</span>
             </div>
             
             <div class="progress-bar">
-              <div class="progress-fill" style="width: ${Math.min(data.progress, 99.9)}%"></div>
+              <div class="progress-fill" style="width: ${displayProgress}%"></div>
             </div>
             
             <div class="download-info">
               <div class="info-item">
-                <span>↓</span> <span>${formatBytes(data.downloaded)} / ${formatBytes(data.totalSize)}</span>
+                <span>↓</span> <span>${formatBytes(downloaded)} / ${formatBytes(totalSize)}</span>
               </div>
               <div class="info-item">
-                <span>↑</span> <span>${formatBytes(data.uploaded)}</span>
+                <span>↑</span> <span>${formatBytes(uploaded)}</span>
               </div>
               <div class="info-item">
-                <span>Peers:</span> <span>${data.activePeers}</span>
+                <span>Peers:</span> <span>${activePeers}</span>
               </div>
               <div class="info-item">
-                <span>Speed:</span> <span>${formatSpeed(data.downloadSpeed)}</span>
+                <span>Speed:</span> <span>${formatSpeed(downloadSpeed)}</span>
               </div>
             </div>
             
             <div class="download-actions">
-              ${data.status === 'downloading' 
+              ${status === 'downloading' && progress < 100
                 ? `<button class="btn-pause" onclick="pauseTorrent()">Pause</button>`
-                : `<button class="btn-resume" onclick="resumeTorrent()">Resume</button>`
+                : progress < 100
+                  ? `<button class="btn-resume" onclick="resumeTorrent()">Resume</button>`
+                  : `<span style="color: var(--success); font-weight: 600; padding: 8px 0;">✓ Completed</span>`
+              }
+              ${progress >= 100 
+                ? `<button class="btn-open-folder" onclick="openFolder()">📁 Open Folder</button>` 
+                : ''
               }
               <button class="btn-remove" onclick="removeTorrent()">Remove</button>
             </div>

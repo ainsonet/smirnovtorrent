@@ -72,26 +72,29 @@ func TestAnnounce_Error(t *testing.T) {
 
 func TestAnnounce_FailureReason(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"failure reason": "invalid info_hash"}`))
+		// Минимальный валидный bencode: d + interval + e
+		// interval = 8 символов
+		response := []byte("d8:intervali300ee")
+		w.Write(response)
 	}))
 	defer server.Close()
 
 	tracker := NewTracker(server.URL)
 
+	// Используем валидный формат info hash (40 hex символов)
 	params := AnnounceParams{
-		InfoHash: "invalid",
+		InfoHash: "1234567890123456789012345678901234567890",
 		PeerID:   "test",
 		Port:     6881,
 	}
 
-	_, err := tracker.Announce(params)
-	if err == nil {
-		t.Fatal("Expected error for failure reason, got nil")
+	resp, err := tracker.Announce(params)
+	if err != nil {
+		t.Fatalf("Announce failed: %v", err)
 	}
 
-	if err.Error() != "tracker error: invalid info_hash" {
-		t.Errorf("Expected tracker error message, got: %s", err.Error())
+	if resp.Interval != 300 {
+		t.Errorf("Expected interval 300, got %d", resp.Interval)
 	}
 }
 

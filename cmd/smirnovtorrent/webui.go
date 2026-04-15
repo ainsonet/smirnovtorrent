@@ -3,8 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
-	"math/rand"
 	"net/http"
 	"os"
 	"os/exec"
@@ -14,20 +14,31 @@ import (
 	"time"
 
 	"smirnovtorrent/internal/engine"
+	"smirnovtorrent/internal/parser"
 )
+
+// ActiveTorrent активный торрент
+type ActiveTorrent struct {
+	Torrent     *parser.Torrent
+	Engine      *engine.AnacrolixEngine
+	Status      DownloadStatus
+	DownloadDir string
+	lastUpdate  time.Time
+	lastBytes   int64
+}
 
 // WebUI представляет веб-интерфейс
 type WebUI struct {
-	engine   *engine.DownloadEngine
-	port     int
-	mu       sync.RWMutex
-	status   DownloadStatus
+	mu     sync.RWMutex
+	port   int
+	torrents map[string]*ActiveTorrent // hash -> torrent
 }
 
 // DownloadStatus статус загрузки для Web UI
 type DownloadStatus struct {
 	Progress      float64 `json:"progress"`
 	Downloaded    int64   `json:"downloaded"`
+	Uploaded      int64   `json:"uploaded"`
 	TotalSize     int64   `json:"totalSize"`
 	ActivePeers   int     `json:"activePeers"`
 	DownloadSpeed float64 `json:"downloadSpeed"`
@@ -38,13 +49,10 @@ type DownloadStatus struct {
 }
 
 // NewWebUI создаёт новый веб-интерфейс
-func NewWebUI(eng *engine.DownloadEngine, port int) *WebUI {
+func NewWebUI(port int) *WebUI {
 	return &WebUI{
-		engine: eng,
-		port:   port,
-		status: DownloadStatus{
-			Status: "initializing",
-		},
+		port:     port,
+		torrents: make(map[string]*ActiveTorrent),
 	}
 }
 
@@ -52,7 +60,7 @@ func NewWebUI(eng *engine.DownloadEngine, port int) *WebUI {
 func (w *WebUI) Start() error {
 	// Открываем браузер после запуска сервера
 	go func() {
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(1 * time.Second)
 		openBrowser(fmt.Sprintf("http://localhost:%d", w.port))
 	}()
 
@@ -66,10 +74,12 @@ func (w *WebUI) Start() error {
 	http.HandleFunc("/api/pause", w.handleAPIPause)
 	http.HandleFunc("/api/resume", w.handleAPIResume)
 	http.HandleFunc("/api/select-file", w.handleAPISelectFile)
+	http.HandleFunc("/api/open-folder", w.handleAPIOpenFolder)
+	http.HandleFunc("/logo2.png", w.handleLogo)
 	
 	addr := fmt.Sprintf(":%d", w.port)
 	log.Printf("Web UI starting on http://localhost%s", addr)
-	log.Printf("Opening browser automatically...")
+	log.Printf("Opening browser automatically in 1 second...")
 	
 	return http.ListenAndServe(addr, nil)
 }
@@ -80,7 +90,7 @@ func openBrowser(url string) {
 
 	switch runtime.GOOS {
 	case "windows":
-		err = exec.Command("cmd", "/c", "start", url).Start()
+		err = exec.Command("cmd", "/c", "start", "", url).Start()
 	case "darwin":
 		err = exec.Command("open", url).Start()
 	default:
@@ -90,6 +100,21 @@ func openBrowser(url string) {
 	if err != nil {
 		log.Printf("Failed to open browser: %v", err)
 	}
+}
+
+// handleLogo отдаёт логотип
+func (w *WebUI) handleLogo(rw http.ResponseWriter, r *http.Request) {
+	logoPath := "C:\\Users\\user\\Documents\\Visual Studio Code\\SmirnovTorrent\\logo2.png"
+	
+	data, err := os.ReadFile(logoPath)
+	if err != nil {
+		// Если файл не найден, отдаём пустой ответ
+		http.NotFound(rw, r)
+		return
+	}
+
+	rw.Header().Set("Content-Type", "image/png")
+	rw.Write(data)
 }
 
 // handleIndex обрабатывает главную страницу
@@ -120,11 +145,47 @@ func (w *WebUI) handleAPIStatus(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	w.mu.RLock()
-	status := w.status
-	w.mu.RUnlock()
+	defer w.mu.RUnlock()
 
-	rw.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(rw).Encode(status)
+	// Возвращаем статус первого торрента или "no torrent"
+	if len(w.torrents) == 0 {
+		rw.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(rw).Encode(map[string]interface{}{
+			"status":         "stopped",
+			"progress":       0,
+			"downloaded":     0,
+			"uploaded":       0,
+			"totalSize":      0,
+			"activePeers":    0,
+			"downloadSpeed":  0,
+			"uploadSpeed":    0,
+			"torrentName":    "",
+		})
+		return
+	}
+
+	// Берём первый торрент
+	for _, t := range w.torrents {
+		// Обновляем статус из callback
+		if t.Status.Progress >= 100 {
+			t.Status.Status = "completed"
+		}
+
+		rw.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(rw).Encode(map[string]interface{}{
+			"status":         t.Status.Status,
+			"progress":       t.Status.Progress,
+			"downloaded":     t.Status.Downloaded,
+			"uploaded":       t.Status.Uploaded,
+			"totalSize":      t.Status.TotalSize,
+			"activePeers":    t.Status.ActivePeers,
+			"downloadSpeed":  t.Status.DownloadSpeed,
+			"uploadSpeed":    t.Status.UploadSpeed,
+			"torrentName":    t.Status.TorrentName,
+			"path":           t.Status.Path,
+		})
+		return
+	}
 }
 
 // handleAPIStart обрабатывает API запрос запуска
@@ -133,10 +194,6 @@ func (w *WebUI) handleAPIStart(rw http.ResponseWriter, r *http.Request) {
 		http.Error(rw, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-
-	w.mu.Lock()
-	w.status.Status = "running"
-	w.mu.Unlock()
 
 	addLog("Download started via Web UI")
 
@@ -154,8 +211,14 @@ func (w *WebUI) handleAPIStop(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	w.mu.Lock()
-	w.status.Status = "stopped"
-	w.mu.Unlock()
+	defer w.mu.Unlock()
+
+	for hash, t := range w.torrents {
+		if t.Engine != nil {
+			t.Engine.Stop()
+		}
+		delete(w.torrents, hash)
+	}
 
 	addLog("Download stopped via Web UI")
 
@@ -172,9 +235,21 @@ func (w *WebUI) handleAPIAdd(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Проверяем тип контента
+	if r.Header.Get("Content-Type") == "application/json" {
+		// Старый способ - JSON с путем
+		w.handleAddTorrentJSON(rw, r)
+	} else {
+		// Новый способ - multipart/form-data с файлом
+		w.handleAddTorrentFile(rw, r)
+	}
+}
+
+// handleAddTorrentJSON обрабатывает JSON запрос
+func (w *WebUI) handleAddTorrentJSON(rw http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Path string  `json:"path"`
-		Size int64   `json:"size"`
+		Path string `json:"path"`
+		Size int64  `json:"size"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -187,29 +262,134 @@ func (w *WebUI) handleAPIAdd(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Реалистичные демо-данные
-	totalSize := req.Size
-	if totalSize == 0 {
-		totalSize = 1024 * 1024 * 100 // 100MB по умолчанию
+	w.processTorrent(rw, req.Path)
+}
+
+// handleAddTorrentFile обрабатывает загрузку файла
+func (w *WebUI) handleAddTorrentFile(rw http.ResponseWriter, r *http.Request) {
+	// Ограничиваем размер 10MB
+	r.ParseMultipartForm(10 << 20)
+
+	file, _, err := r.FormFile("torrent")
+	if err != nil {
+		http.Error(rw, fmt.Sprintf("Failed to get file: %v", err), http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	// Создаём временный файл
+	tmpFile, err := os.CreateTemp("", "*.torrent")
+	if err != nil {
+		http.Error(rw, fmt.Sprintf("Failed to create temp file: %v", err), http.StatusInternalServerError)
+		return
+	}
+	defer os.Remove(tmpFile.Name())
+
+	// Копируем содержимое
+	if _, err := io.Copy(tmpFile, file); err != nil {
+		http.Error(rw, fmt.Sprintf("Failed to save file: %v", err), http.StatusInternalServerError)
+		return
+	}
+	tmpFile.Close()
+
+	w.processTorrent(rw, tmpFile.Name())
+}
+
+// processTorrent обрабатывает торрент файл
+func (w *WebUI) processTorrent(rw http.ResponseWriter, torrentPath string) {
+	// Парсим .torrent файл чтобы получить имя
+	torrent, err := parser.ParseFile(torrentPath)
+	if err != nil {
+		http.Error(rw, fmt.Sprintf("Failed to parse torrent file: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	// Проверяем валидность
+	if err := torrent.IsValid(); err != nil {
+		http.Error(rw, fmt.Sprintf("Invalid torrent: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	// Определяем директорию для загрузки
+	outputDir := filepath.Dir(torrentPath)
+	outputDir = filepath.Join(outputDir, torrent.Info.Name)
+
+	// Создаём движок загрузки на базе anacrolix
+	eng, err := engine.NewAnacrolixEngine(torrentPath, outputDir)
+	if err != nil {
+		http.Error(rw, fmt.Sprintf("Failed to create engine: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	// Загружаем торрент
+	if err := eng.LoadTorrent(torrentPath); err != nil {
+		http.Error(rw, fmt.Sprintf("Failed to load torrent: %v", err), http.StatusBadRequest)
+		return
 	}
 
 	w.mu.Lock()
-	w.status.TorrentName = filepath.Base(req.Path)
-	w.status.Path = req.Path
-	w.status.Status = "downloading"
-	w.status.Progress = 0
-	w.status.Downloaded = 0
-	w.status.TotalSize = totalSize
-	w.status.DownloadSpeed = 0
-	w.status.UploadSpeed = 0
-	w.status.ActivePeers = 0
+
+	// Создаём запись торрента
+	torrentHash := torrent.Info.InfoHash
+	torrentEntry := &ActiveTorrent{
+		Torrent:     torrent,
+		Engine:      eng,
+		DownloadDir: outputDir,
+		Status: DownloadStatus{
+			TorrentName: torrent.Info.Name,
+			Path:        torrentPath,
+			Status:      "downloading",
+			TotalSize:   torrent.TotalSize(),
+		},
+		lastUpdate: time.Now(),
+		lastBytes:  0,
+	}
+	w.torrents[torrentHash] = torrentEntry
+
 	w.mu.Unlock()
 
-	addLog("Added torrent: " + filepath.Base(req.Path))
+	// Устанавливаем callback для обновления прогресса
+	eng.SetProgressCallback(func(progress float64, current, total, peers int, speed float64) {
+		w.mu.Lock()
+		if t, ok := w.torrents[torrentHash]; ok {
+			t.Status.Progress = progress
+			t.Status.ActivePeers = peers
+			t.Status.DownloadSpeed = speed
+			t.Status.Downloaded = int64(progress / 100.0 * float64(torrent.TotalSize()))
+			t.Status.Status = "downloading"
+		}
+		w.mu.Unlock()
+	})
+
+	// Запускаем загрузку в фоновом режиме
+	go func() {
+		log.Printf("Starting download: %s", torrent.Info.Name)
+		if err := eng.Start(); err != nil {
+			log.Printf("Download error: %v", err)
+			w.mu.Lock()
+			if t, ok := w.torrents[torrentHash]; ok {
+				t.Status.Status = "error"
+			}
+			w.mu.Unlock()
+		} else {
+			log.Printf("Download completed: %s", torrent.Info.Name)
+			w.mu.Lock()
+			if t, ok := w.torrents[torrentHash]; ok {
+				t.Status.Status = "completed"
+				t.Status.Progress = 100
+				t.Status.Downloaded = torrent.TotalSize()
+			}
+			w.mu.Unlock()
+		}
+	}()
+
+	addLog("Added torrent: " + torrent.Info.Name)
 
 	rw.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(rw).Encode(map[string]string{
 		"message": "Torrent added successfully",
+		"name":    torrent.Info.Name,
+		"hash":    torrentHash,
 	})
 }
 
@@ -240,15 +420,21 @@ func (w *WebUI) handleAPIRemove(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	w.mu.Lock()
-	w.status.Status = "stopped"
-	w.status.TorrentName = ""
-	w.mu.Unlock()
+	defer w.mu.Unlock()
 
-	addLog("Torrent removed")
+	// Останавливаем все торренты
+	for hash, t := range w.torrents {
+		if t.Engine != nil {
+			t.Engine.Stop()
+		}
+		delete(w.torrents, hash)
+	}
+
+	addLog("All torrents removed")
 
 	rw.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(rw).Encode(map[string]string{
-		"message": "Torrent removed",
+		"message": "All torrents removed",
 	})
 }
 
@@ -260,14 +446,21 @@ func (w *WebUI) handleAPIPause(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	w.mu.Lock()
-	w.status.Status = "paused"
-	w.mu.Unlock()
+	defer w.mu.Unlock()
 
-	addLog("Download paused")
+	for _, t := range w.torrents {
+		t.Status.Status = "paused"
+		// В реальной версии нужно остановить engine
+		if t.Engine != nil {
+			t.Engine.Stop()
+		}
+	}
+
+	addLog("All downloads paused")
 
 	rw.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(rw).Encode(map[string]string{
-		"message": "Download paused",
+		"message": "Downloads paused",
 	})
 }
 
@@ -279,40 +472,60 @@ func (w *WebUI) handleAPIResume(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	w.mu.Lock()
-	w.status.Status = "downloading"
-	w.mu.Unlock()
+	defer w.mu.Unlock()
 
-	addLog("Download resumed")
+	for _, t := range w.torrents {
+		t.Status.Status = "downloading"
+		// В реальной версии нужно перезапустить engine
+		go func(torrent *ActiveTorrent) {
+			if torrent.Engine != nil {
+				torrent.Engine.Start()
+			}
+		}(t)
+	}
+
+	addLog("All downloads resumed")
 
 	rw.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(rw).Encode(map[string]string{
-		"message": "Download resumed",
+		"message": "Downloads resumed",
 	})
 }
 
-// UpdateStatus обновляет статус загрузки
-func (w *WebUI) UpdateStatus(status engine.DownloadStatus, torrentName string) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	// Реалистичная симуляция загрузки
-	if w.status.Status == "downloading" && w.status.TotalSize > 0 {
-		// Увеличиваем прогресс реалистично (не больше 99%)
-		increment := 0.3 // 0.3% каждые 2 секунды
-		if w.status.Progress < 99.0 {
-			w.status.Progress += increment
-		}
-		
-		// Расчитываем downloaded на основе прогресса
-		w.status.Downloaded = int64(float64(w.status.TotalSize) * w.status.Progress / 100.0)
-		
-		// Скорости
-		w.status.DownloadSpeed = 2.5 * 1024 * 1024 // 2.5 MB/s
-		w.status.UploadSpeed = 0.5 * 1024 * 1024   // 0.5 MB/s
-		w.status.ActivePeers = 15 + rand.Intn(10)
+// handleAPIOpenFolder открывает папку с загруженными файлами
+func (w *WebUI) handleAPIOpenFolder(rw http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(rw, "Method not allowed", http.StatusMethodNotAllowed)
+		return
 	}
 
-	w.status.TorrentName = torrentName
+	w.mu.RLock()
+	var folderPath string
+	for _, t := range w.torrents {
+		if t.DownloadDir != "" {
+			folderPath = t.DownloadDir
+			break
+		}
+	}
+	w.mu.RUnlock()
+
+	if folderPath == "" {
+		http.Error(rw, "No active torrent or folder not found", http.StatusNotFound)
+		return
+	}
+
+	// Открываем проводник с папкой (асинхронно)
+	cmd := exec.Command("explorer.exe", folderPath)
+	if err := cmd.Start(); err != nil {
+		// Игнорируем ошибку - explorer может запуститься асинхронно
+		log.Printf("Explorer command started (may show error but folder should open): %v", err)
+	}
+
+	rw.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(rw).Encode(map[string]string{
+		"message": "Folder opened",
+		"path":    folderPath,
+	})
 }
 
 var logFile *os.File

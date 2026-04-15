@@ -1,196 +1,348 @@
-# SmirnovTorrent
+# 🌊 [SmirnovTorrent](https://ainsonet.github.io/smirnovtorrent/)
 
-<img src="https://raw.githubusercontent.com/ainsonet/smirnovtorrent/master/logo.png" alt="SmirnovTorrent Logo" width="200"/>
+[![Версия](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/ainsonet/smirnovtorrent/releases)
+[![Лицензия](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Go](https://img.shields.io/badge/Go-1.24.0-00ADD8.svg?logo=go)](https://go.dev/)
 
-🌊 Lightweight BitTorrent client written in Go
+**Лёгкий, современный BitTorrent клиент** с веб-интерфейсом, написанный на Go.
 
-## 🚀 Features
+![Интерфейс](logo.png)
 
-- ✅ Parse .torrent files
-- ✅ Bencode encoding/decoding
-- ✅ Tracker protocol support
-- ✅ DHT network support (BEP 5)
-- ✅ Magnet link support (BEP 9)
-- ✅ Multi-file torrents
-- ✅ Piece verification with SHA-1
-- ✅ Rate limiting (token bucket)
-- ✅ Encryption (MSE/PE - BEP 47)
-- ✅ CLI with progress bar
-- ✅ Web UI (real-time)
-- ✅ Desktop GUI (Tauri) ✨ NEW
-- ✅ PEX (Peer Exchange - BEP 11)
-- ✅ Resume support
-- ✅ Structured logging
-- ✅ JSON configuration
+## ✨ Особенности
 
-## 📦 Установка
+- ⚡ **Высокая производительность** - Оптимизирован для быстрых загрузок
+- 🎨 **Современный веб-интерфейс** - Красивый UI с поддержкой тёмной/светлой темы
+- 🔒 **Безопасность** - Поддержка MSE/PE шифрования
+- 🌐 **DHT и PEX** - Децентрализованное обнаружение пиров
+- 🔄 **Продолжение загрузок** - Сохранение прогресса при остановке
+- 📊 **Статистика в реальном времени** - Скорости, пиры, прогресс
+- 📁 **Удобная организация** - Автоматическая сортировка файлов
+- 🚀 **Портативность** - Не требует установки
 
-### Windows (Готовый установщик)
+## 📋 Содержание
 
-1. Скачайте установщик: `SmirnovTorrent_1.0.0_x64-setup.exe`
-2. Запустите и следуйте инструкциям
-3. Готово! Приложение в меню Пуск
+- [🌊 SmirnovTorrent](#-smirnovtorrent)
+  - [✨ Особенности](#-особенности)
+  - [📋 Содержание](#-содержание)
+  - [🚀 Быстрый старт](#-быстрый-старт)
+    - [Windows (готовый исполняемый файл)](#windows-готовый-исполняемый-файл)
+    - [Из командной строки](#из-командной-строки)
+  - [📥 Установка](#-установка)
+    - [Windows](#windows)
+    - [Из исходников](#из-исходников)
+  - [📖 Использование](#-использование)
+    - [Веб-интерфейс](#веб-интерфейс)
+    - [Командная строка](#командная-строка)
+  - [⚙️ Конфигурация](#️-конфигурация)
+    - [Файл конфигурации](#файл-конфигурации)
+    - [Параметры](#параметры)
+  - [🛠️ Сборка из исходников](#️-сборка-из-исходников)
+    - [Требования](#требования)
+    - [Сборка](#сборка)
+    - [Проверка сборки](#проверка-сборки)
+  - [📁 Структура проекта](#-структура-проекта)
+  - [🔌 Документация API](#-документация-api)
+    - [Эндпоинты веб-интерфейса](#эндпоинты-веб-интерфейса)
+    - [Пример ответа API](#пример-ответа-api)
+  - [🤝 Вклад](#-вклад)
+    - [Как внести вклад](#как-внести-вклад)
+    - [Правила разработки](#правила-разработки)
+  - [📝 Лицензия](#-лицензия)
+  - [🙏 Благодарности](#-благодарности)
+  - [📞 Контакты](#-контакты)
 
-**Или соберите сами:**
+## 🚀 Быстрый старт
+
+### Windows (готовый исполняемый файл)
+
+1. [Скачайте последнюю версию](https://github.com/ainsonet/smirnovtorrent/releases)
+2. Распакуйте архив
+3. Запустите `smirnovtorrent.exe`
+4. Откройте браузер по адресу `http://localhost:8080`
+
+### Из командной строки
+
+```bash
+# Загрузить торрент файл
+smirnovtorrent download example.torrent
+
+# Запустить веб-интерфейс
+smirnovtorrent webui
+
+# Показать информацию о торренте
+smirnovtorrent info example.torrent
+```
+
+## 📥 Установка
+
+### Windows
+
+Скачайте последнюю версию с [GitHub Releases](https://github.com/ainsonet/smirnovtorrent/releases):
+
 ```powershell
-.\build-installer.ps1
+# Используя PowerShell
+Invoke-WebRequest -Uri "https://github.com/ainsonet/smirnovtorrent/releases/download/v1.0.0/smirnovtorrent-windows.zip" -OutFile "smirnovtorrent.zip"
+Expand-Archive smirnovtorrent.zip
+.\smirnovtorrent\smirnovtorrent.exe webui
 ```
 
 ### Из исходников
 
+Требуется **Go 1.24.0** или новее:
+
 ```bash
-# CLI
+# Клонируйте репозиторий
 git clone https://github.com/ainsonet/smirnovtorrent.git
 cd smirnovtorrent
+
+# Скомпилируйте
 go build -o smirnovtorrent.exe ./cmd/smirnovtorrent
 
-# Desktop GUI
-cd gui
-npm install
-npm run tauri dev
+# Запустите
+.\smirnovtorrent.exe webui
 ```
 
-## 💻 Usage
+## 📖 Использование
+
+### Веб-интерфейс
+
+Веб-интерфейс предоставляет удобный GUI для управления загрузками:
+
+1. **Запуск:**
+   ```bash
+   smirnovtorrent webui
+   ```
+
+2. **Откройте браузер:**
+   - Перейдите по адресу `http://localhost:8080`
+   - Браузер откроется автоматически (Windows)
+
+3. **Добавление торрента:**
+   - Нажмите кнопку **"Browse"** (📁)
+   - Выберите `.torrent` файл
+   - Нажмите **"Add Torrent"**
+   - Загрузка начнётся автоматически
+
+4. **Управление:**
+   - **Pause** - Приостановить загрузку
+   - **Open Folder** - Открыть папку с файлами (после завершения)
+   - **Remove** - Удалить торрент
+
+### Командная строка
+
+Полный список команд:
 
 ```bash
-# Show torrent information
-smirnovtorrent info example.torrent
+# Показать справку
+smirnovtorrent help
 
-# Download a torrent
+# Скачать торрент
+smirnovtorrent download <файл.torrent|magnet> [опции]
+
+# Опции для загрузки:
+#   -o string         Выходная директория
+#   -download-limit   Лимит загрузки (байт/сек, 0 = без ограничений)
+#   -upload-limit     Лимит отдачи (байт/сек, 0 = без ограничений)
+#   -dht              Включить DHT (по умолчанию: true)
+#   -pex              Включить PEX (по умолчанию: true)
+#   -encrypt          Включить шифрование (по умолчанию: true)
+
+# Примеры:
 smirnovtorrent download example.torrent
-
-# Download from magnet link (experimental)
+smirnovtorrent download file.torrent -o ~/Downloads
+smirnovtorrent download file.torrent -download-limit 1048576 -upload-limit 524288
 smirnovtorrent download "magnet:?xt=urn:btih:..."
 
-# Start Web UI (default port 8080)
-smirnovtorrent webui [port]
+# Запустить веб-интерфейс
+smirnovtorrent webui          # Порт 8080 (по умолчанию)
+smirnovtorrent webui 9000     # Порт 9000
 
-# Show version
+# Информация о торренте
+smirnovtorrent info example.torrent
+
+# Показать версию
 smirnovtorrent version
-
-# Show help
-smirnovtorrent help
 ```
 
-### Web Interface
+## ⚙️ Конфигурация
 
-Open http://localhost:8080 in your browser to access the Web UI with:
-- Real-time progress monitoring
-- Download/upload statistics
-- Active peers count
-- Start/stop controls
-- Activity log
+### Файл конфигурации
 
-### Desktop GUI (NEW!)
+Создайте файл `smirnovtorrent.json` в директории приложения:
 
-Launch the desktop application for a native experience:
+```json
+{
+  "WebUIPort": 8080,
+  "DownloadRateLimit": 0,
+  "UploadRateLimit": 0,
+  "EnableDHT": true,
+  "EnablePEX": true,
+  "EnableEncryption": true,
+  "DefaultDownloadDir": "C:\\Users\\user\\Downloads"
+}
+```
+
+### Параметры
+
+| Параметр | Тип | По умолчанию | Описание |
+|----------|-----|--------------|----------|
+| `WebUIPort` | int | `8080` | Порт веб-интерфейса |
+| `DownloadRateLimit` | int | `0` | Лимит загрузки (байт/сек) |
+| `UploadRateLimit` | int | `0` | Лимит отдачи (байт/сек) |
+| `EnableDHT` | bool | `true` | Включить DHT |
+| `EnablePEX` | bool | `true` | Включить Peer Exchange |
+| `EnableEncryption` | bool | `true` | Включить MSE шифрование |
+| `DefaultDownloadDir` | string | `.` | Директория по умолчанию |
+
+## 🛠️ Сборка из исходников
+
+### Требования
+
+- **Go** 1.24.0 или новее
+- **Git** (для клонирования репозитория)
+
+### Сборка
 
 ```bash
-cd gui
-npm install
-npm run tauri dev
+# Клонируйте репозиторий
+git clone https://github.com/ainsonet/smirnovtorrent.git
+cd smirnovtorrent
+
+# Обычная сборка
+go build -o smirnovtorrent.exe ./cmd/smirnovtorrent
+
+# Сборка с оптимизациями
+go build -ldflags="-s -w" -o smirnovtorrent.exe ./cmd/smirnovtorrent
+
+# Сборка инсталлятора
+powershell -ExecutionPolicy Bypass -File build-installer.ps1
 ```
 
-Features:
-- 🎨 Modern dark theme UI
-- 📊 Real-time statistics
-- 🎯 Visual progress bars
-- ⏯️ Pause/resume controls
-- 🔍 File browser integration
-- 📝 Activity log
-
-See [gui/README.md](gui/README.md) for detailed setup instructions.
-
-## 🏗️ Project Structure
-
-```
-smirnovtorrent/
-├── cmd/
-│   └── smirnovtorrent/     # CLI application
-├── gui/                    # Desktop GUI (Tauri) ✨
-│   ├── src-tauri/         # Rust backend
-│   ├── public/            # Frontend assets
-│   └── README.md          # GUI documentation
-├── internal/
-│   ├── dht/               # DHT network client
-│   ├── engine/            # Download engine
-│   ├── encryption/        # MSE/PE encryption
-│   ├── magnet/            # Magnet link parser
-│   ├── parser/            # Torrent file parser
-│   ├── peer/              # BitTorrent peer protocol
-│   ├── tracker/           # Tracker protocol client
-│   ├── config/            # Configuration management
-│   ├── logger/            # Structured logging
-│   └── ratelimit/         # Rate limiting
-└── pkg/
-    └── bencode/           # Public bencode package
-```
-
-## 🧪 Running Tests
+### Проверка сборки
 
 ```bash
-# Run all unit tests
+# Запустите тесты
 go test ./...
 
-# Run with coverage
-go test ./... -cover
+# Проверьте форматирование
+go fmt ./...
 
-# Run E2E tests (requires TORRENT_FILE environment variable)
-go test -tags e2e -v -timeout 5m ./cmd/smirnovtorrent
+# Проверьте линтером
+golangci-lint run
 ```
 
-## 📈 Development Status
+## 📁 Структура проекта
 
-| Module | Status | Tests |
-|--------|--------|-------|
-| Parser | ✅ Complete | 6/6 + 2 bench |
-| Engine | ✅ Complete | 24/24 |
-| Encryption | ✅ Full Integration | 6/6 |
-| Tracker | ✅ Working | ✓ |
-| DHT | ✅ Kademlia + Iterative | ✓ |
-| Magnet | ✅ Metadata (BEP 9) | ✓ |
-| PEX | ✅ BEP 11 | ✓ |
-| Peer | ✅ Working | ✓ |
-| Web UI | ✅ v0.8.0 | - |
-| **Desktop GUI** | ✅ **v1.0.0 (Tauri)** | - |
-| **Resume** | ✅ **Graceful Shutdown** | ✓ |
-| **Config** | ✅ **Integrated** | 5/5 |
-| **Logger** | ✅ **Structured** | 4/4 |
-| **RateLimit** | ✅ **Token Bucket** | 8/8 + 2 bench |
+```
+SmirnovTorrent/
+├── cmd/
+│   └── smirnovtorrent/
+│       ├── main.go           # Точка входа CLI
+│       ├── webui.go          # Веб-сервер
+│       └── webui.html        # Веб-интерфейс
+│
+├── internal/
+│   ├── config/               # Управление конфигурацией
+│   ├── engine/
+│   │   ├── anacrolix_engine.go  # Движок загрузки
+│   │   └── resume.go         # Сохранение прогресса
+│   ├── logger/               # Логирование
+│   ├── parser/               # Парсер .torrent файлов
+│   └── tracker/              # Tracker клиент
+│
+├── pkg/
+│   └── bencode/              # Bencode кодирование
+│
+├── website/                  # Официальный сайт
+│   ├── index.html
+│   ├── styles.css
+│   ├── script.js
+│   └── logo2.png
+│
+├── build-installer.ps1       # Создание инсталлятора
+├── go.mod                    # Зависимости Go
+├── LICENSE                   # Лицензия MIT
+└── README.md                 # Документация
+```
 
-**Total: 50+ tests passing** (45 unit + 5 E2E)
+## 🔌 Документация API
 
-**Current version: v1.0.0** 🎉
+### Эндпоинты веб-интерфейса
 
-## 📝 Roadmap
+| Метод | Путь | Описание |
+|-------|------|----------|
+| `GET` | `/` | Главная страница |
+| `GET` | `/api/status` | Статус загрузки |
+| `POST` | `/api/add` | Добавить торрент |
+| `POST` | `/api/start` | Запустить загрузку |
+| `POST` | `/api/stop` | Остановить загрузку |
+| `POST` | `/api/pause` | Приостановить |
+| `POST` | `/api/resume` | Возобновить |
+| `POST` | `/api/remove` | Удалить торрент |
+| `POST` | `/api/open-folder` | Открыть папку |
+| `GET` | `/logo2.png` | Логотип |
 
-- [x] Core torrent parsing
-- [x] Tracker protocol
-- [x] Peer protocol
-- [x] Piece management
-- [x] Download engine
-- [x] Multi-file support
-- [x] Rarest-first algorithm
-- [x] Seed mode
-- [x] Magnet links (BEP 9)
-- [x] DHT bootstrap (BEP 5)
-- [x] Kademlia routing table
-- [x] DHT iterative lookup
-- [x] PEX (Peer Exchange - BEP 11)
-- [x] BitTorrent encryption (BEP 47)
-- [x] Graceful shutdown & resume
-- [x] Rate limiting (token bucket)
-- [x] Configuration system
-- [x] Structured logging
-- [x] Web UI
-- [x] **Desktop GUI (Tauri)** ✨
-- [x] **E2E testing**
-- [x] **CI/CD pipeline**
-- [ ] Advanced statistics dashboard
-- [ ] WebTorrent support
-- [ ] IPv6 support
-- [ ] Plugin system
+### Пример ответа API
 
-## 📄 License
+```json
+{
+  "status": "completed",
+  "progress": 100,
+  "downloaded": 5368709120,
+  "uploaded": 2147483648,
+  "totalSize": 5368709120,
+  "activePeers": 15,
+  "downloadSpeed": 0,
+  "uploadSpeed": 524288,
+  "torrentName": "example-file.iso",
+  "path": "C:\\Downloads\\example.torrent"
+}
+```
 
-MIT
+## 🤝 Вклад
+
+Мы приветствуем вклад! Пожалуйста, прочитайте наши правила перед созданием pull request'ов.
+
+### Как внести вклад
+
+1. **Форкните** репозиторий
+2. **Создайте ветку** для вашей фичи:
+   ```bash
+   git checkout -b feature/amazing-feature
+   ```
+3. **Сделайте изменения** и запишите тесты
+4. **Закоммитьте** изменения:
+   ```bash
+   git commit -m 'Добавлена amazing фича'
+   ```
+5. **Пушните** в ветку:
+   ```bash
+   git push origin feature/amazing-feature
+   ```
+6. **Откройте Pull Request**
+
+### Правила разработки
+
+- Следуйте стилю кода Go
+- Пишите понятные комментарии
+- Добавляйте тесты для новых функций
+- Обновляйте документацию при необходимости
+
+## 📝 Лицензия
+
+Этот проект распространяется под лицензией **MIT**. См. файл [LICENSE](LICENSE) для деталей.
+
+## 🙏 Благодарности
+
+- [anacrolix/torrent](https://github.com/anacrolix/torrent) - Отличный BitTorrent клиент на Go
+- [GoLang](https://golang.org/) - Великолепный язык программирования
+- Все контрибьюторы проекта
+
+## 📞 Контакты
+
+- **Автор**: NLP-Core-Team
+- **GitHub**: [ainsonet/smirnovtorrent](https://github.com/ainsonet/smirnovtorrent)
+
+---
+
+**Разработано с ❤️**

@@ -5,13 +5,12 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"smirnovtorrent/internal/config"
-	"smirnovtorrent/internal/dht"
 	"smirnovtorrent/internal/engine"
 	"smirnovtorrent/internal/logger"
-	"smirnovtorrent/internal/magnet"
 	"smirnovtorrent/internal/parser"
 )
 
@@ -169,80 +168,45 @@ func showInfo(path string) {
 func download(source string, cfg *config.Config, outputDir string) {
 	appLog.Info("Starting download from: %s", source)
 
-	// Проверяем это magnet ссылка
-	if magnet.IsMagnetLink(source) {
-		downloadFromMagnet(source, cfg)
-		return
-	}
-
-	torrent, err := parser.ParseFile(source)
-	if err != nil {
-		appLog.Error("Error parsing torrent: %v", err)
-		fmt.Printf("Error parsing torrent: %v\n", err)
+	// Проверяем что файл существует
+	if _, err := os.Stat(source); os.IsNotExist(err) {
+		appLog.Error("Torrent file not found: %s", source)
+		fmt.Printf("Error: Torrent file not found: %s\n", source)
 		os.Exit(1)
 	}
 
-	// Проверяем валидность торрента
-	if err := torrent.IsValid(); err != nil {
-		appLog.Error("Invalid torrent: %v", err)
-		fmt.Printf("Invalid torrent: %v\n", err)
+	// Проверяем расширение
+	if !strings.HasSuffix(strings.ToLower(source), ".torrent") {
+		appLog.Error("Not a .torrent file: %s", source)
+		fmt.Printf("Error: Not a .torrent file: %s\n", source)
 		os.Exit(1)
 	}
 
-	appLog.Info("Torrent: %s, Size: %d bytes", torrent.Info.Name, torrent.TotalSize())
-	
-	fmt.Printf("Starting download: %s\n", torrent.Info.Name)
-	fmt.Printf("Size: %d bytes (%s)\n", torrent.TotalSize(), formatBytesFloat(float64(torrent.TotalSize())))
-	fmt.Printf("Pieces: %d\n", len(torrent.Info.Pieces)/20)
-	fmt.Printf("Piece size: %s\n", torrent.PieceSize())
-	fmt.Printf("Tracker: %s\n", torrent.Announce)
-	
-	// Показываем лимиты скорости
-	if cfg.DownloadRateLimit > 0 {
-		fmt.Printf("Download limit: %s/s\n", engine.FormatRate(cfg.DownloadRateLimit))
-	} else {
-		fmt.Println("Download limit: unlimited")
+	// Если outputDir не указан, используем текущую директорию
+	if outputDir == "" {
+		outputDir = "."
 	}
 
-	if cfg.UploadRateLimit > 0 {
-		fmt.Printf("Upload limit: %s/s\n", engine.FormatRate(cfg.UploadRateLimit))
-	} else {
-		fmt.Println("Upload limit: unlimited")
-	}
-	
+	fmt.Printf("Starting download: %s\n", filepath.Base(source))
+	fmt.Printf("Output directory: %s\n", outputDir)
 	fmt.Println()
 
 	// Создаём и запускаем движок загрузки
-	eng := engine.NewDownloadEngine(torrent, outputDir)
-	
-	// Применяем конфигурацию
-	if cfg.EnableDHT {
-		appLog.Info("DHT enabled")
-		eng.EnableDHT()
+	eng, err := engine.NewAnacrolixEngine(source, outputDir)
+	if err != nil {
+		appLog.Error("Engine creation error: %v", err)
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
 	}
-	
-	if cfg.EnablePEX {
-		appLog.Info("PEX enabled")
-		// PEX включается автоматически в PeerPool
+	defer eng.Stop()
+
+	// Загружаем торрент
+	if err := eng.LoadTorrent(source); err != nil {
+		appLog.Error("Torrent load error: %v", err)
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
 	}
-	
-	if cfg.EnableEncryption {
-		appLog.Info("Encryption enabled")
-		// Encryption is enabled by default in PeerPool
-	}
-	
-	// Rate limiting
-	if cfg.DownloadRateLimit > 0 || cfg.UploadRateLimit > 0 {
-		appLog.Info("Setting rate limits: DL=%d, UL=%d bytes/sec", cfg.DownloadRateLimit, cfg.UploadRateLimit)
-		eng.SetRateLimits(cfg.DownloadRateLimit, cfg.UploadRateLimit)
-	}
-	
-	// Resume support
-	if cfg.EnableResume {
-		appLog.Info("Resume support enabled")
-		eng.EnableResume()
-	}
-	
+
 	// Устанавливаем callback для обновления прогресса
 	prog := NewProgressBar(40)
 	eng.SetProgressCallback(func(progress float64, current, total, peers int, speed float64) {
@@ -262,117 +226,21 @@ func download(source string, cfg *config.Config, outputDir string) {
 	appLog.Info("Download completed successfully")
 	fmt.Println()
 	fmt.Println("Download completed successfully!")
-}
-
-// downloadFromMagnet загружает из magnet ссылки
-func downloadFromMagnet(magnetLink string, cfg *config.Config) {
-	appLog.Info("Magnet download: %s", magnetLink)
-	
-	fmt.Println("Magnet link download")
-	fmt.Println("====================")
-
-	link, err := magnet.Parse(magnetLink)
-	if err != nil {
-		appLog.Error("Error parsing magnet: %v", err)
-		fmt.Printf("Error parsing magnet link: %v\n", err)
-		os.Exit(1)
-	}
-
-	appLog.Info("Magnet info hash: %s", link.InfoHash)
-	
-	fmt.Printf("Info Hash: %s\n", link.InfoHash)
-	if link.DisplayName != "" {
-		fmt.Printf("Name: %s\n", link.DisplayName)
-	}
-	fmt.Printf("Trackers: %d\n", len(link.Trackers))
-	for i, tracker := range link.Trackers {
-		fmt.Printf("  %d. %s\n", i+1, tracker)
-	}
-	if link.DHT {
-		fmt.Println("DHT: Enabled")
-	}
-	if link.PEX {
-		fmt.Println("PEX: Enabled")
-	}
-
-	fmt.Println()
-	
-	if !cfg.EnableDHT && !link.DHT {
-		appLog.Warn("DHT is disabled, magnet download may fail")
-		fmt.Println("Warning: DHT is disabled. Enable with --dht flag or config.")
-	}
-	
-	fmt.Println("Starting DHT client...")
-
-	// Создаём DHT клиент
-	dhtClient, err := dht.NewDHTClient(nil, 6882)
-	if err != nil {
-		appLog.Error("DHT client error: %v", err)
-		fmt.Printf("Error creating DHT client: %v\n", err)
-		os.Exit(1)
-	}
-
-	if err := dhtClient.Start(); err != nil {
-		appLog.Error("DHT start error: %v", err)
-		fmt.Printf("Error starting DHT: %v\n", err)
-		os.Exit(1)
-	}
-
-	appLog.Info("DHT started, searching for peers...")
-	fmt.Println("DHT started, searching for peers...")
-
-	// Пытаемся получить метаданные через DHT (BEP 9)
-	fmt.Println("Attempting metadata download via BEP 9...")
-	
-	// Получаем пиры через DHT
-	peers, err := dhtClient.FindPeer(link.InfoHash)
-	if err != nil {
-		appLog.Warn("DHT peer discovery: %v", err)
-		fmt.Printf("Warning: DHT peer discovery: %v\n", err)
-	} else {
-		appLog.Info("Found %d peers via DHT", len(peers))
-		fmt.Printf("Found %d peers via DHT\n", len(peers))
-	}
-
-	// Если есть трекеры, получаем пиры от них
-	if len(link.Trackers) > 0 {
-		appLog.Info("Contacting %d trackers", len(link.Trackers))
-		fmt.Println("Contacting trackers...")
-		// В полной реализации здесь нужно получить пиры от трекеров
-	}
-
-	fmt.Println()
-	fmt.Println("Note: Full magnet download with metadata is in progress.")
-	fmt.Println("For now, you need to provide a .torrent file for complete download.")
-	
-	// Очищаем DHT клиент
-	dhtClient.Stop()
-	appLog.Info("DHT client stopped")
+	fmt.Printf("Files saved to: %s\n", outputDir)
 }
 
 // startWebUI запускает веб-интерфейс
 func startWebUI(port int, cfg *config.Config) {
 	appLog.Info("Starting Web UI on port %d", port)
-	
+
 	fmt.Println("Starting Web UI...")
 	fmt.Printf("Open http://localhost:%d in your browser\n", port)
+	fmt.Println("Add .torrent files via the interface to start downloading.")
 	fmt.Println()
 
-	// Создаём тестовый движок (для демонстрации)
-	torrent := &parser.Torrent{
-		Info: parser.TorrentInfo{
-			Name:        "Demo Torrent",
-			InfoHash:    "0000000000000000000000000000000000000000",
-			PieceLength: 16384,
-			Pieces:      make([]byte, 20),
-			Files:       []parser.FileInfo{{Path: "demo.txt", Size: 1024}},
-		},
-	}
+	webui := NewWebUI(port)
 
-	eng := engine.NewDownloadEngine(torrent, "")
-	webui := NewWebUI(eng, port)
-
-	// Запускаем веб-сервер
+	// Запускаем веб-сервер (он откроет браузер автоматически)
 	appLog.Info("Web UI server starting")
 	if err := webui.Start(); err != nil {
 		appLog.Error("Web UI error: %v", err)
@@ -380,21 +248,6 @@ func startWebUI(port int, cfg *config.Config) {
 		os.Exit(1)
 	}
 	appLog.Info("Web UI server stopped")
-}
-
-// formatBytesFloat форматирует размер в байтах для вывода (для float64 скорости)
-func formatBytesFloat(bytes float64) string {
-	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%.1f B", bytes)
-	}
-	div, exp := float64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	suffixes := []string{"KB", "MB", "GB", "TB"}
-	return fmt.Sprintf("%.1f %s", bytes/div, suffixes[exp])
 }
 
 // ProgressBar прогресс бар для CLI
@@ -410,11 +263,26 @@ func NewProgressBar(width int) *ProgressBar {
 // Show показывает прогресс
 func (pb *ProgressBar) Show(progress float64, current, total, peers int, speed float64) {
 	// Простой вывод в консоль
+	speedStr := formatSpeed(speed)
 	fmt.Printf("\r[%s] %6.2f%% | Peers: %3d | Speed: %8s/s", 
 		strings.Repeat("=", int(progress/100*float64(pb.width))) + ">",
 		progress,
 		peers,
-		formatBytesFloat(speed))
+		speedStr)
+}
+
+// formatSpeed форматирует скорость
+func formatSpeed(bytesPerSec float64) string {
+	if bytesPerSec < 1024 {
+		return fmt.Sprintf("%.1f B", bytesPerSec)
+	}
+	div, exp := float64(1024), 0
+	for n := bytesPerSec / 1024; n >= 1024; n /= 1024 {
+		div *= 1024
+		exp++
+	}
+	suffixes := []string{"KB", "MB", "GB", "TB"}
+	return fmt.Sprintf("%.1f %s", bytesPerSec/div, suffixes[exp])
 }
 
 // Finish завершает прогресс бар
