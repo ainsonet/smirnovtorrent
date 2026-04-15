@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmirnovTorrent - Лёгкий BitTorrent клиент</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" type="image/png" href="logo.png">
+</head>
+<body>
+  <!-- Навигация -->
+  <nav class="navbar">
+    <div class="container">
+      <div class="nav-brand">
+        <img src="logo.png" alt="SmirnovTorrent" class="nav-logo">
+        <span class="nav-title">SmirnovTorrent</span>
+      </div>
+      <ul class="nav-links">
+        <li><a href="#features">Функции</a></li>
+        <li><a href="#download">Скачать</a></li>
+        <li><a href="#docs">Документация</a></li>
+        <li><a href="https://github.com/ainsonet/smirnovtorrent" target="_blank">GitHub</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Герой -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-content">
+        <img src="logo.png" alt="SmirnovTorrent" class="hero-logo">
+        <h1>Лёгкий BitTorrent клиент</h1>
+        <p class="hero-subtitle">Быстрый, современный и функциональный торрент-клиент на Go</p>
+        <div class="hero-cta">
+          <a href="#download" class="btn btn-primary">Скачать сейчас</a>
+          <a href="https://github.com/ainsonet/smirnovtorrent" target="_blank" class="btn btn-secondary">GitHub</a>
+        </div>
+        <div class="hero-stats">
+          <div class="stat">
+            <span class="stat-value">v1.0.0</span>
+            <span class="stat-label">Версия</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value">Go</span>
+            <span class="stat-label">Написан на</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value">MIT</span>
+            <span class="stat-label">Лицензия</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Функции -->
+  <section id="features" class="features">
+    <div class="container">
+      <h2 class="section-title">Функции</h2>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <h3>Молниеносная скорость</h3>
+          <p>Оптимизирован для производительности с эффективным управлением пирами и параллельными загрузками</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🎨</div>
+          <h3>Современный интерфейс</h3>
+          <p>Красивый веб-интерфейс с поддержкой тёмной/светлой темы</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔒</div>
+          <h3>Безопасность</h3>
+          <p>Поддержка MSE/PE шифрования для приватных и безопасных загрузок</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🌐</div>
+          <h3>Поддержка DHT</h3>
+          <p>Децентрализованное обнаружение пиров без трекеров</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔄</div>
+          <h3>Продолжение загрузок</h3>
+          <p>Приостанавливайте и возобновляйте загрузки в любое время без потери прогресса</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📊</div>
+          <h3>Статистика в реальном времени</h3>
+          <p>Мониторьте скорости загрузки/отдачи, количество пиров и прогресс</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Скриншот -->
+  <section class="screenshot">
+    <div class="container">
+      <h2 class="section-title">Интерфейс</h2>
+      <div class="screenshot-container">
+        <div class="browser-window">
+          <div class="browser-header">
+            <div class="browser-buttons">
+              <span class="button red"></span>
+              <span class="button yellow"></span>
+              <span class="button green"></span>
+            </div>
+            <div class="browser-url">http://localhost:8080</div>
+          </div>
+          <div class="browser-content">
+            <div class="ui-mockup">
+              <div class="ui-header">
+                <div class="ui-logo">🌊 SmirnovTorrent</div>
+                <div class="ui-theme-toggle">🌙</div>
+              </div>
+              <div class="ui-stats">
+                <div class="ui-stat">0 КБ/с</div>
+                <div class="ui-stat">0 КБ/с</div>
+                <div class="ui-stat">0</div>
+                <div class="ui-stat">0</div>
+              </div>
+              <div class="ui-torrent">
+                <div class="ui-torrent-name">example-file.iso</div>
+                <div class="ui-progress">
+                  <div class="ui-progress-fill" style="width: 100%"></div>
+                </div>
+                <div class="ui-torrent-info">
+                  <span>↓ 4.7 ГБ / 4.7 ГБ</span>
+                  <span>↑ 2.1 ГБ</span>
+                  <span>✓ Завершено</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Скачать -->
+  <section id="download" class="download">
+    <div class="container">
+      <h2 class="section-title">Начать работу</h2>
+      <div class="download-grid">
+        <div class="download-card">
+          <div class="download-icon">💻</div>
+          <h3>Windows</h3>
+          <p>Скачайте исполняемый файл</p>
+          <a href="https://github.com/ainsonet/smirnovtorrent/releases" target="_blank" class="btn btn-primary">Скачать .exe</a>
+          <p class="download-note">Не требует установки - портативная версия</p>
+        </div>
+        <div class="download-card">
+          <div class="download-icon">📦</div>
+          <h3>Сборка из исходников</h3>
+          <p>Скомпилируйте самостоятельно</p>
+          <pre class="code-block">git clone https://github.com/ainsonet/smirnovtorrent.git
+cd smirnovtorrent
+go build -o smirnovtorrent.exe</pre>
+          <a href="https://github.com/ainsonet/smirnovtorrent" target="_blank" class="btn btn-secondary">Исходный код</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Документация -->
+  <section id="docs" class="docs">
+    <div class="container">
+      <h2 class="section-title">Быстрый старт</h2>
+      <div class="docs-grid">
+        <div class="doc-card">
+          <h3>🖥️ Командная строка</h3>
+          <pre class="code-block">
+# Загрузить торрент файл
+smirnovtorrent download example.torrent
+
+# Загрузка с опциями
+smirnovtorrent download file.torrent -o ~/Downloads
+
+# Запустить веб-интерфейс
+smirnovtorrent webui
+
+# Показать информацию о торренте
+smirnovtorrent info example.torrent</pre>
+        </div>
+        <div class="doc-card">
+          <h3>🌐 Веб-интерфейс</h3>
+          <ol class="steps-list">
+            <li>Запустите <code>start.bat</code></li>
+            <li>Откройте <code>http://localhost:8080</code> в браузере</li>
+            <li>Нажмите "Browse" для выбора .torrent файла</li>
+            <li>Нажмите "Add Torrent" для начала загрузки</li>
+            <li>Мониторьте прогресс в реальном времени</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Подвал -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-brand">
+          <img src="logo.png" alt="SmirnovTorrent" class="footer-logo">
+          <p>Лёгкий BitTorrent клиент</p>
+        </div>
+        <div class="footer-links">
+          <a href="https://github.com/ainsonet/smirnovtorrent" target="_blank">GitHub</a>
+          <a href="#docs">Документация</a>
+          <a href="#features">Функции</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2025 SmirnovTorrent. Лицензия MIT.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
