@@ -30,3 +30,7 @@ bin/
 # Config files with secrets
 *.env
 *.config
+
+# Distribution archives
+*.zip
+SmirnovTorrent.zip

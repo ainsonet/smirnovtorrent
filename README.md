@@ -268,7 +268,7 @@ SmirnovTorrent/
 │   ├── index.html
 │   ├── styles.css
 │   ├── script.js
-│   └── logo2.png
+│   └── logo.png
 │
 ├── build-installer.ps1       # Создание инсталлятора
 ├── go.mod                    # Зависимости Go
@@ -291,7 +291,7 @@ SmirnovTorrent/
 | `POST` | `/api/resume` | Возобновить |
 | `POST` | `/api/remove` | Удалить торрент |
 | `POST` | `/api/open-folder` | Открыть папку |
-| `GET` | `/logo2.png` | Логотип |
+| `GET` | `/logo.png` | Логотип |
 
 ### Пример ответа API
 

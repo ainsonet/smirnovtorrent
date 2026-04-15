@@ -75,7 +75,7 @@ func (w *WebUI) Start() error {
 	http.HandleFunc("/api/resume", w.handleAPIResume)
 	http.HandleFunc("/api/select-file", w.handleAPISelectFile)
 	http.HandleFunc("/api/open-folder", w.handleAPIOpenFolder)
-	http.HandleFunc("/logo2.png", w.handleLogo)
+	http.HandleFunc("/logo.png", w.handleLogo)
 	
 	addr := fmt.Sprintf(":%d", w.port)
 	log.Printf("Web UI starting on http://localhost%s", addr)
@@ -104,7 +104,7 @@ func openBrowser(url string) {
 
 // handleLogo отдаёт логотип
 func (w *WebUI) handleLogo(rw http.ResponseWriter, r *http.Request) {
-	logoPath := "C:\\Users\\user\\Documents\\Visual Studio Code\\SmirnovTorrent\\logo2.png"
+	logoPath := "C:\\Users\\user\\Documents\\Visual Studio Code\\SmirnovTorrent\\logo.png"
 	
 	data, err := os.ReadFile(logoPath)
 	if err != nil {
