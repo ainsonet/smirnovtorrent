@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SmirnovTorrent</title>
+  <title>SmirnovTorrent - Торрент-клиент</title>
   <style>
     :root {
       --primary: #0ea5e9;
@@ -341,51 +341,51 @@
 <body>
   <div class="container">
     <header>
-      <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌙</button>
+      <button class="theme-toggle" onclick="toggleTheme()" title="Переключить тему">🌙</button>
       <img src="/logo2.png" alt="SmirnovTorrent" class="logo" onerror="this.style.display='none'">
       <h1>SmirnovTorrent</h1>
-      <p>Lightweight BitTorrent Client v1.0.0</p>
+      <p>Лёгкий BitTorrent клиент v1.0.0</p>
     </header>
 
     <section class="add-torrent">
-      <h2>Add Torrent</h2>
+      <h2>Добавить торрент</h2>
       <div class="input-group">
-        <input type="text" id="torrentInput" placeholder="Or paste .torrent file path..." />
+        <input type="text" id="torrentInput" placeholder="Или вставьте путь к .torrent файлу..." />
         <input type="file" id="fileInput" accept=".torrent" style="display: none;" onchange="handleFileSelect(event)" />
-        <button class="btn-select" onclick="document.getElementById('fileInput').click()">📁 Browse</button>
-        <button onclick="addTorrent()">Add Torrent</button>
+        <button class="btn-select" onclick="document.getElementById('fileInput').click()">📁 Обзор</button>
+        <button onclick="addTorrent()">Добавить</button>
       </div>
       <div id="fileInfo" style="margin-top: 10px; color: var(--text-muted); font-size: 0.9rem;"></div>
     </section>
 
     <section class="stats">
       <div class="stat-card">
-        <div class="stat-value" id="downloadSpeed">0 KB/s</div>
-        <div class="stat-label">Download</div>
+        <div class="stat-value" id="downloadSpeed">0 КБ/с</div>
+        <div class="stat-label">Загрузка</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value" id="uploadSpeed">0 KB/s</div>
-        <div class="stat-label">Upload</div>
+        <div class="stat-value" id="uploadSpeed">0 КБ/с</div>
+        <div class="stat-label">Отдача</div>
       </div>
       <div class="stat-card">
         <div class="stat-value" id="activePeers">0</div>
-        <div class="stat-label">Peers</div>
+        <div class="stat-label">Пиры</div>
       </div>
       <div class="stat-card">
         <div class="stat-value" id="activeTorrents">0</div>
-        <div class="stat-label">Torrents</div>
+        <div class="stat-label">Торренты</div>
       </div>
     </section>
 
     <section class="downloads">
-      <h2>Active Torrents</h2>
+      <h2>Активные торренты</h2>
       <div id="downloadsList">
         <div class="empty-state">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
                   d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
           </svg>
-          <p>No active torrents</p>
+          <p>Нет активных загрузок</p>
         </div>
       </div>
     </section>
@@ -419,7 +419,7 @@
       const inputValue = input.value.trim();
       
       if (!inputValue) {
-        alert('Please select a .torrent file');
+        alert('Пожалуйста, выберите .torrent файл');
         return;
       }
 
@@ -429,7 +429,7 @@
           const formData = new FormData();
           formData.append('torrent', selectedFilePath);
           
-          console.log('Uploading torrent file:', selectedFilePath.name);
+          console.log('Загрузка торрент файла:', selectedFilePath.name);
           
           const response = await fetch('/api/add', {
             method: 'POST',
@@ -446,14 +446,14 @@
             setTimeout(updateStats, 500);
           } else {
             const error = await response.text();
-            console.error('Error adding torrent:', error);
-            alert('Error: ' + error);
+            console.error('Ошибка добавления торрента:', error);
+            alert('Ошибка: ' + error);
           }
           return;
         }
         
         // Иначе используем путь из поля ввода
-        console.log('Adding torrent from path:', inputValue);
+        console.log('Добавление торрента из пути:', inputValue);
         
         const response = await fetch('/api/add', {
           method: 'POST',
@@ -463,7 +463,7 @@
 
         if (response.ok) {
           const data = await response.json();
-          console.log('Torrent added:', data);
+          console.log('Торрент добавлен:', data);
           input.value = '';
           selectedFilePath = null;
           document.getElementById('fileInput').value = '';
@@ -471,12 +471,12 @@
           setTimeout(updateStats, 500);
         } else {
           const error = await response.text();
-          console.error('Error adding torrent:', error);
-          alert('Error: ' + error);
+          console.error('Ошибка добавления торрента:', error);
+          alert('Ошибка: ' + error);
         }
       } catch (err) {
-        console.error('Failed to add torrent:', err);
-        alert('Failed to add torrent: ' + err.message);
+        console.error('Не удалось добавить торрент:', err);
+        alert('Не удалось добавить торрент: ' + err.message);
       }
     }
           
@@ -486,7 +486,7 @@
         await fetch('/api/pause', { method: 'POST' });
         updateStats();
       } catch (err) {
-        console.error('Pause error:', err);
+        console.error('Ошибка паузы:', err);
       }
     }
 
@@ -496,19 +496,19 @@
         await fetch('/api/resume', { method: 'POST' });
         updateStats();
       } catch (err) {
-        console.error('Resume error:', err);
+        console.error('Ошибка возобновления:', err);
       }
     }
 
     // Remove torrent
     async function removeTorrent() {
-      if (!confirm('Remove torrent and stop downloading?')) return;
+      if (!confirm('Удалить торрент и остановить загрузку?')) return;
 
       try {
         await fetch('/api/remove', { method: 'POST' });
         setTimeout(updateStats, 500);
       } catch (err) {
-        console.error('Failed to remove torrent:', err);
+        console.error('Не удалось удалить торрент:', err);
       }
     }
 
@@ -517,12 +517,12 @@
       try {
         const response = await fetch('/api/open-folder', { method: 'POST' });
         const data = await response.json();
-        console.log('Folder opened:', data.path);
+        console.log('Папка открыта:', data.path);
         // Не показываем alert об успехе - папка уже открылась
       } catch (err) {
-        console.error('Failed to open folder:', err);
+        console.error('Не удалось открыть папку:', err);
         // Даже если ошибка в fetch, explorer мог открыться
-        console.log('Explorer may have opened despite error');
+        console.log('Explorer мог открыться несмотря на ошибку');
       }
     }
           
@@ -533,7 +533,7 @@
         const data = await response.json();
         
         // Debug output
-        console.log('Status response:', JSON.stringify(data));
+        console.log('Статус ответа:', JSON.stringify(data));
         
         // Handle null/undefined values
         const downloadSpeed = data.downloadSpeed || 0;
@@ -547,7 +547,7 @@
         const torrentName = data.torrentName || '';
         
         // Debug - show status in console
-        console.log('Status:', status, 'Progress:', progress, 'Total:', totalSize);
+        console.log('Статус:', status, 'Прогресс:', progress, 'Всего:', totalSize);
         
         // Update stats cards
         document.getElementById('downloadSpeed').textContent = formatSpeed(downloadSpeed);
@@ -565,7 +565,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
                       d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
               </svg>
-              <p>No active torrents</p>
+              <p>Нет активных загрузок</p>
             </div>
           `;
           return;
@@ -607,36 +607,36 @@
             
             <div class="download-actions">
               ${status === 'downloading' && progress < 100
-                ? `<button class="btn-pause" onclick="pauseTorrent()">Pause</button>`
+                ? `<button class="btn-pause" onclick="pauseTorrent()">Пауза</button>`
                 : progress < 100
-                  ? `<button class="btn-resume" onclick="resumeTorrent()">Resume</button>`
-                  : `<span style="color: var(--success); font-weight: 600; padding: 8px 0;">✓ Completed</span>`
+                  ? `<button class="btn-resume" onclick="resumeTorrent()">Возобновить</button>`
+                  : `<span style="color: var(--success); font-weight: 600; padding: 8px 0;">✓ Завершено</span>`
               }
               ${progress >= 100 
-                ? `<button class="btn-open-folder" onclick="openFolder()">📁 Open Folder</button>` 
+                ? `<button class="btn-open-folder" onclick="openFolder()">📁 Открыть папку</button>` 
                 : ''
               }
-              <button class="btn-remove" onclick="removeTorrent()">Remove</button>
+              <button class="btn-remove" onclick="removeTorrent()">Удалить</button>
             </div>
           </div>
         `;
       } catch (err) {
-        console.error('Update error:', err);
+        console.error('Ошибка обновления:', err);
       }
     }
           
     // Utility functions
     function formatSpeed(bytes) {
-      if (bytes < 1024) return bytes + ' B/s';
-      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB/s';
-      return (bytes / (1024 * 1024)).toFixed(1) + ' MB/s';
+      if (bytes < 1024) return bytes + ' Б/с';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' КБ/с';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' МБ/с';
     }
 
     function formatBytes(bytes) {
-      if (bytes < 1024) return bytes + ' B';
-      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-      if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
-      return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+      if (bytes < 1024) return bytes + ' Б';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' КБ';
+      if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + ' МБ';
+      return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' ГБ';
     }
 
     function escapeHtml(text) {
