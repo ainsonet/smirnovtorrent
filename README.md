@@ -1,10 +1,10 @@
-# SmirnovTorrent
+# [SmirnovTorrent](https://ainsonet.github.io/smirnovtorrent/)
 
 [![Версия](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/ainsonet/smirnovtorrent/releases)
 [![Лицензия](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.24.0-00ADD8.svg?logo=go)](https://go.dev/)
 
-**Лёгкий, современный BitTorrent клиент** с веб-интерфейсом, написанный на Go.
+Лёгкий, современный BitTorrent клиент с веб-интерфейсом, написанный на Go.
 
 <img src="https://raw.githubusercontent.com/ainsonet/smirnovtorrent/master/logo.png" alt="SmirnovTorrent Logo" width="200"/>
 
