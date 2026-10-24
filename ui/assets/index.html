@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmirnovTorrent</title>
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="icon" type="image/jpeg" href="smirnovtorrent.jpg">
+  <link rel="preload" href="TwemojiCountryFlags.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="style.css">
+  <script>
+    (function() {
+      try {
+        var t = localStorage.getItem('smirnovtorrent_theme');
+        if (t === 'light') {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+        var l = localStorage.getItem('smirnovtorrent_language');
+        var validLangs = ['ru', 'en', 'de', 'fr', 'es', 'it', 'pt', 'zh', 'ja', 'pl', 'tr'];
+        if (l === 'uk' || (l && validLangs.indexOf(l) === -1)) {
+          l = 'ru';
+          localStorage.setItem('smirnovtorrent_language', 'ru');
+        }
+        if (l) {
+          document.documentElement.setAttribute('lang', l);
+        }
+      } catch(e) {}
+    })();
+  </script>
+</head>
+<body>
+  <!-- Full Window Drag & Drop Overlay -->
+  <div id="drag-drop-overlay" class="drag-drop-overlay hidden">
+    <div class="drag-drop-card">
+      <div class="drag-drop-icon">
+        <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+      </div>
+      <h2 data-i18n="drag_title">Добавить торрент</h2>
+      <p data-i18n="drag_desc">Отпустите .torrent файл или Magnet-ссылку для добавления</p>
+    </div>
+  </div>
+
+  <div class="app-container">
+    <!-- Top Toolbar -->
+    <header class="toolbar">
+      <div class="brand">
+        <!-- Logo removed from title below, moved to native window titlebar and taskbar -->
+        <div class="brand-badge" style="display: none;">
+          <img id="brand-logo" src="smirnovtorrent.jpg" alt="SmirnovTorrent" class="brand-logo">
+          <script>
+            if (document.documentElement.getAttribute('data-theme') === 'light') {
+              var logo = document.getElementById('brand-logo');
+              if (logo) logo.src = 'smirnovtorrent-light.jpg';
+              var fav = document.querySelector('link[rel="icon"]');
+              if (fav) fav.href = 'smirnovtorrent-light.jpg';
+            }
+          </script>
+        </div>
+        <div class="brand-text">
+          <span class="brand-name">Smirnov</span><span class="brand-sub">Torrent</span>
+        </div>
+      </div>
+
+      <div class="tool-actions">
+        <button id="btn-resume" class="btn" title="Возобновить выбранный торрент" data-i18n-title="btn_resume_title" disabled>
+          <svg viewBox="0 0 24 24" class="icon icon-success"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span data-i18n="btn_resume">Продолжить</span>
+        </button>
+        <button id="btn-pause" class="btn" title="Приостановить выбранный торрент" data-i18n-title="btn_pause_title" disabled>
+          <svg viewBox="0 0 24 24" class="icon"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+          <span data-i18n="btn_pause">Пауза</span>
+        </button>
+        <button id="btn-delete" class="btn btn-danger-hover" title="Удалить торрент (Delete)" data-i18n-title="btn_delete_title" disabled>
+          <svg viewBox="0 0 24 24" class="icon"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          <span data-i18n="btn_delete">Удалить</span>
+        </button>
+
+        <div class="separator"></div>
+
+        <button id="btn-open-folder" class="btn" title="Открыть папку загрузки в проводнике" data-i18n-title="btn_folder_title" disabled>
+          <svg viewBox="0 0 24 24" class="icon"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          <span data-i18n="btn_folder">Папка</span>
+        </button>
+        <button id="btn-sequential" class="btn" title="Последовательная загрузка (для потокового просмотра)" data-i18n-title="btn_sequential_title" disabled>
+          <svg viewBox="0 0 24 24" class="icon"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          <span data-i18n="btn_sequential">Последовательно</span>
+        </button>
+        <button id="btn-verify" class="btn" title="Перепроверить целостность данных" data-i18n-title="btn_verify_title" disabled>
+          <svg viewBox="0 0 24 24" class="icon"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <span data-i18n="btn_verify">Проверить</span>
+        </button>
+        <button id="btn-redownload" class="btn" title="Скачать заново / Исправить отсутствующие файлы" data-i18n-title="btn_redownload_title" disabled>
+          <svg viewBox="0 0 24 24" class="icon"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          <span data-i18n="btn_redownload">Заново</span>
+        </button>
+
+        <div class="separator"></div>
+
+        <button id="btn-settings" class="btn" title="Настройки программы" data-i18n-title="btn_settings_title">
+          <svg viewBox="0 0 24 24" class="icon"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span data-i18n="btn_settings">Настройки</span>
+        </button>
+      </div>
+
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" class="search-icon" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="filter-input" placeholder="Поиск торрентов..." data-i18n-placeholder="search_placeholder">
+        <span class="search-hint">Ctrl+F</span>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <div class="main-body">
+      <!-- Left Sidebar Categories -->
+      <aside class="sidebar">
+        <div class="sidebar-section-title" data-i18n="cat_title">Категории</div>
+        <ul class="nav-list">
+          <li class="nav-item active" data-filter="all">
+            <span class="nav-icon">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            </span>
+            <span class="nav-label" data-i18n="cat_all">Все торренты</span>
+            <span class="nav-badge" id="badge-all">0</span>
+          </li>
+          <li class="nav-item" data-filter="downloading">
+            <span class="nav-icon color-dl">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+            </span>
+            <span class="nav-label" data-i18n="cat_downloading">Загружаются</span>
+            <span class="nav-badge badge-dl" id="badge-dl">0</span>
+          </li>
+          <li class="nav-item" data-filter="seeding">
+            <span class="nav-icon color-seed">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+            </span>
+            <span class="nav-label" data-i18n="cat_seeding">Раздаются</span>
+            <span class="nav-badge badge-seed" id="badge-seed">0</span>
+          </li>
+          <li class="nav-item" data-filter="completed">
+            <span class="nav-icon color-comp">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            </span>
+            <span class="nav-label" data-i18n="cat_completed">Завершены</span>
+            <span class="nav-badge" id="badge-comp">0</span>
+          </li>
+          <li class="nav-item" data-filter="paused">
+            <span class="nav-icon color-paused">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+            </span>
+            <span class="nav-label" data-i18n="cat_paused">На паузе</span>
+            <span class="nav-badge" id="badge-paused">0</span>
+          </li>
+          <li class="nav-item" data-filter="missing">
+            <span class="nav-icon color-missing">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </span>
+            <span class="nav-label" data-i18n="cat_missing">Отсутствуют</span>
+            <span class="nav-badge badge-missing" id="badge-missing">0</span>
+          </li>
+        </ul>
+
+        <div class="sidebar-footer">
+          <div class="app-version">SmirnovTorrent v1.1.0</div>
+          <div class="engine-badge">
+            <span class="engine-dot"></span>
+            <span data-i18n="engine_active">Клиент активен</span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Center & Inspector Split Area -->
+      <main class="content-split">
+        <!-- Top Half: Torrents Table -->
+        <section class="torrents-view">
+          <div class="table-container" id="table-scroll-container">
+            <table class="torrent-table" id="torrent-table">
+              <thead>
+                <tr>
+                  <th class="col-name" data-sort="name" data-i18n="col_name">Имя файла</th>
+                  <th class="col-size" data-sort="size" data-i18n="col_size">Размер</th>
+                  <th class="col-progress" data-sort="progress" data-i18n="col_progress">Прогресс</th>
+                  <th class="col-status" data-sort="status" data-i18n="col_status">Статус</th>
+                  <th class="col-dlspeed" data-sort="download_speed" data-i18n="col_dlspeed">Загрузка</th>
+                  <th class="col-ulspeed" data-sort="upload_speed" data-i18n="col_ulspeed">Отдача</th>
+                  <th class="col-eta" data-sort="eta" data-i18n="col_eta">Осталось</th>
+                  <th class="col-peers" data-sort="peers_connected" data-i18n="col_peers">Пиры</th>
+                  <th class="col-seeds" data-sort="seeds_connected" data-i18n="col_seeds">Сиды</th>
+                  <th class="col-ratio" data-sort="ratio" data-i18n="col_ratio">Рейтинг</th>
+                  <th class="col-added" data-sort="added_at" data-i18n="col_added">Добавлен</th>
+                </tr>
+              </thead>
+              <tbody id="torrent-tbody">
+                <!-- Dynamically populated rows -->
+              </tbody>
+            </table>
+
+            <div id="empty-state" class="empty-state">
+              <div class="empty-illustration">
+                <svg viewBox="0 0 48 48" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M12 6h24a4 4 0 0 1 4 4v28a4 4 0 0 1-4 4H12a4 4 0 0 1-4-4V10a4 4 0 0 1 4-4z"/>
+                  <path d="M16 20h16M16 28h10"/>
+                  <circle cx="34" cy="34" r="7" fill="var(--bg-surface)" stroke="var(--accent-blue)" stroke-width="2"/>
+                  <path d="M34 31v6M31 34h6" stroke="var(--accent-blue)" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <h3 data-i18n="empty_title">Здесь пока нет торрентов</h3>
+              <p data-i18n="empty_desc">Перетащите .torrent файл из проводника или воспользуйтесь кнопками ниже</p>
+              <div class="empty-actions">
+                <button class="btn btn-primary" onclick="addTorrentFile()">
+                  <svg viewBox="0 0 24 24" class="icon" width="14" height="14"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                  <span data-i18n="empty_select_file">Выбрать .torrent файл</span>
+                </button>
+                <button class="btn btn-secondary" onclick="openModal('modal-magnet')">
+                  <svg viewBox="0 0 24 24" class="icon" width="14" height="14"><path d="M6 3v7a6 6 0 0 0 12 0V3"/><line x1="6" y1="7" x2="10" y2="7"/><line x1="14" y1="7" x2="18" y2="7"/></svg>
+                  <span data-i18n="empty_paste_magnet">Вставить Magnet-ссылку</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Splitter bar -->
+        <div class="resizer" id="drag-resizer">
+          <div class="resizer-handle"></div>
+        </div>
+
+        <!-- Bottom Half: Inspector Tabs -->
+        <section class="details-view" id="details-view">
+          <nav class="tab-header">
+            <button class="tab-btn active" data-tab="general" data-i18n="tab_general">Общие</button>
+            <button class="tab-btn" data-tab="files"><span data-i18n="tab_files">Файлы</span> (<span id="files-count">0</span>)</button>
+            <button class="tab-btn" data-tab="peers" data-i18n="tab_peers">Пиры</button>
+            <button class="tab-btn" data-tab="trackers" data-i18n="tab_trackers">Трекеры</button>
+            <button class="tab-btn" data-tab="pieces" data-i18n="tab_pieces">Карта частей</button>
+          </nav>
+
+          <div class="tab-content">
+            <!-- General Tab -->
+            <div class="tab-pane active" id="pane-general">
+              <div class="details-grid">
+                <div class="info-group">
+                  <h4>
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                    <span data-i18n="sec_transfer">Передача данных</span>
+                  </h4>
+                  <div class="info-row"><span class="k" data-i18n="lbl_downloaded">Загружено:</span><span class="v" id="info-downloaded">-</span></div>
+                  <div class="info-row"><span class="k" data-i18n="lbl_uploaded">Отдано:</span><span class="v" id="info-uploaded">-</span></div>
+                  <div class="info-row"><span class="k" data-i18n="lbl_dl_speed">Скорость загрузки:</span><span class="v" id="info-dlspeed">-</span></div>
+                  <div class="info-row"><span class="k" data-i18n="lbl_ul_speed">Скорость отдачи:</span><span class="v" id="info-ulspeed">-</span></div>
+                  <div class="info-row"><span class="k" data-i18n="lbl_eta">Оставшееся время:</span><span class="v" id="info-eta">-</span></div>
+                  <div class="info-row"><span class="k" data-i18n="lbl_ratio">Рейтинг (Ratio):</span><span class="v" id="info-ratio">-</span></div>
+                </div>
+
+                <div class="info-group">
+                  <h4>
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                    <span data-i18n="sec_torrent_details">Сведения о торренте</span>
+                  </h4>
+                  <div class="info-row"><span class="k" data-i18n="lbl_total_size">Общий размер:</span><span class="v" id="info-size">-</span></div>
+                  <div class="info-row"><span class="k" data-i18n="lbl_piece_size">Размер части:</span><span class="v" id="info-piecesize">-</span></div>
+                  <div class="info-row"><span class="k" data-i18n="lbl_piece_count">Количество частей:</span><span class="v" id="info-piececount">-</span></div>
+                  <div class="info-row"><span class="k" data-i18n="lbl_info_hash">Хэш (InfoHash):</span><span class="v font-mono selectable" id="info-hash">-</span></div>
+                  <div class="info-row"><span class="k" data-i18n="lbl_save_path">Папка сохранения:</span><span class="v font-mono selectable" id="info-savepath">-</span></div>
+                  <div class="info-row"><span class="k" data-i18n="lbl_created_date">Дата создания:</span><span class="v" id="info-date">-</span></div>
+                  <div class="info-row"><span class="k" data-i18n="lbl_created_by">Создано программой:</span><span class="v" id="info-creator">-</span></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Files Tab -->
+            <div class="tab-pane" id="pane-files">
+              <div class="files-table-container">
+                <table class="sub-table" id="files-table">
+                  <thead>
+                    <tr>
+                      <th class="col-file-name" data-i18n="col_file_name">Имя файла</th>
+                      <th class="col-file-size" data-i18n="col_file_size">Размер</th>
+                      <th class="col-file-prog" data-i18n="col_file_prog">Прогресс</th>
+                      <th class="col-file-prio" data-i18n="col_file_prio">Приоритет</th>
+                    </tr>
+                  </thead>
+                  <tbody id="files-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Peers Tab -->
+            <div class="tab-pane" id="pane-peers">
+              <div class="files-table-container">
+                <table class="sub-table">
+                  <thead>
+                    <tr>
+                      <th data-i18n="col_peer_ip">IP-адрес / Порт</th>
+                      <th data-i18n="col_peer_client">Клиент</th>
+                      <th data-i18n="col_peer_dl">Скорость приема</th>
+                      <th data-i18n="col_peer_ul">Скорость отдачи</th>
+                      <th data-i18n="col_peer_prog">Прогресс пира</th>
+                    </tr>
+                  </thead>
+                  <tbody id="peers-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Trackers Tab -->
+            <div class="tab-pane" id="pane-trackers">
+              <div class="files-table-container">
+                <table class="sub-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 50px;">#</th>
+                      <th data-i18n="col_tracker_url">Адрес трекера</th>
+                      <th style="width: 120px;" data-i18n="col_tracker_status">Статус</th>
+                    </tr>
+                  </thead>
+                  <tbody id="trackers-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Pieces Map Tab -->
+            <div class="tab-pane" id="pane-pieces">
+              <div class="pieces-controls">
+                <div class="pieces-legend">
+                  <span class="legend-item"><span class="legend-box piece-done"></span> <span data-i18n="legend_done">Скачано</span></span>
+                  <span class="legend-item"><span class="legend-box piece-part"></span> <span data-i18n="legend_part">Частично</span></span>
+                  <span class="legend-item"><span class="legend-box piece-none"></span> <span data-i18n="legend_wait">Ожидает</span></span>
+                </div>
+                <span id="pieces-stats" class="pieces-stats">0 / 0 частей</span>
+              </div>
+              <div id="pieces-grid" class="pieces-grid"></div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Status Bar -->
+    <footer class="statusbar">
+      <div class="status-left">
+        <span class="status-pill status-ready" id="status-pill" data-i18n="status_ready">Готов</span>
+        <span id="status-torrents-count">Торрентов: 0</span>
+        <span class="sep">|</span>
+        <span id="status-dht-nodes">DHT: Активен</span>
+      </div>
+      <div class="status-right">
+        <span class="speed-indicator speed-dl">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+          <span id="global-dl-speed">0 B/s</span>
+        </span>
+        <span class="speed-indicator speed-ul">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+          <span id="global-ul-speed">0 B/s</span>
+        </span>
+        <span class="sep">|</span>
+        <span id="global-total-dl">Всего скачано: 0 B</span>
+        <span class="sep">|</span>
+        <span id="global-total-ul">Всего отдано: 0 B</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Context Menu for Torrents -->
+  <div id="context-menu-torrent" class="context-menu hidden">
+    <div class="context-item" id="ctx-torrent-toggle">
+      <span class="ctx-icon" id="ctx-icon-toggle">
+        <svg viewBox="0 0 24 24" class="ctx-svg"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      </span>
+      <span id="ctx-label-toggle" data-i18n="ctx_resume">Возобновить</span>
+      <span class="ctx-shortcut" data-i18n="shortcut_space">Пробел</span>
+    </div>
+    <div class="context-item" id="ctx-torrent-open-folder">
+      <span class="ctx-icon">
+        <svg viewBox="0 0 24 24" class="ctx-svg"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      </span>
+      <span data-i18n="ctx_open_folder">Открыть папку</span>
+      <span class="ctx-shortcut">Enter</span>
+    </div>
+    <div class="context-separator"></div>
+    <div class="context-item" id="ctx-torrent-sequential">
+      <span class="ctx-icon">
+        <svg viewBox="0 0 24 24" class="ctx-svg"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+      </span>
+      <span id="ctx-label-sequential" data-i18n="ctx_sequential">Последовательно</span>
+    </div>
+    <div class="context-item" id="ctx-torrent-verify">
+      <span class="ctx-icon">
+        <svg viewBox="0 0 24 24" class="ctx-svg"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      </span>
+      <span data-i18n="ctx_verify">Перепроверить</span>
+    </div>
+    <div class="context-item" id="ctx-torrent-redownload">
+      <span class="ctx-icon">
+        <svg viewBox="0 0 24 24" class="ctx-svg"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+      </span>
+      <span data-i18n="ctx_redownload">Скачать заново</span>
+    </div>
+    <div class="context-separator"></div>
+    <div class="context-item" id="ctx-torrent-copy-magnet">
+      <span class="ctx-icon">
+        <svg viewBox="0 0 24 24" class="ctx-svg"><path d="M6 3v7a6 6 0 0 0 12 0V3"/><line x1="6" y1="7" x2="10" y2="7"/><line x1="14" y1="7" x2="18" y2="7"/></svg>
+      </span>
+      <span data-i18n="ctx_copy_magnet">Скопировать Magnet-ссылку</span>
+    </div>
+    <div class="context-item" id="ctx-torrent-copy-hash">
+      <span class="ctx-icon">
+        <svg viewBox="0 0 24 24" class="ctx-svg"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      </span>
+      <span data-i18n="ctx_copy_hash">Скопировать хэш</span>
+      <span class="ctx-shortcut">Ctrl+C</span>
+    </div>
+    <div class="context-separator"></div>
+    <div class="context-item context-item-danger" id="ctx-torrent-delete">
+      <span class="ctx-icon">
+        <svg viewBox="0 0 24 24" class="ctx-svg"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      </span>
+      <span data-i18n="ctx_delete">Удалить...</span>
+      <span class="ctx-shortcut">Del</span>
+    </div>
+  </div>
+
+  <!-- Context Menu for Files -->
+  <div id="context-menu-file" class="context-menu hidden">
+    <div class="context-item" id="ctx-file-open">
+      <span class="ctx-icon">
+        <svg viewBox="0 0 24 24" class="ctx-svg"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      </span>
+      <span data-i18n="ctx_file_open">Открыть файл</span>
+      <span class="ctx-shortcut">Enter</span>
+    </div>
+    <div class="context-item" id="ctx-file-show-folder">
+      <span class="ctx-icon">
+        <svg viewBox="0 0 24 24" class="ctx-svg"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      </span>
+      <span data-i18n="ctx_file_show_folder">Показать в проводнике</span>
+    </div>
+    <div class="context-separator"></div>
+    <div class="context-submenu-header" data-i18n="ctx_prio_header">Приоритет</div>
+    <div class="context-item" id="ctx-file-prio-high">
+      <span class="ctx-icon">
+        <svg viewBox="0 0 24 24" class="ctx-svg color-high"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+      </span>
+      <span data-i18n="ctx_prio_high">Высокий приоритет</span>
+    </div>
+    <div class="context-item" id="ctx-file-prio-normal">
+      <span class="ctx-icon">
+        <svg viewBox="0 0 24 24" class="ctx-svg color-normal"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </span>
+      <span data-i18n="ctx_prio_normal">Обычный приоритет</span>
+    </div>
+    <div class="context-item" id="ctx-file-prio-none">
+      <span class="ctx-icon">
+        <svg viewBox="0 0 24 24" class="ctx-svg color-skip"><circle cx="12" cy="12" r="9"/><line x1="5.7" y1="5.7" x2="18.3" y2="18.3"/></svg>
+      </span>
+      <span data-i18n="ctx_prio_none">Не скачивать</span>
+    </div>
+    <div class="context-separator"></div>
+    <div class="context-item" id="ctx-file-copy-name">
+      <span class="ctx-icon">
+        <svg viewBox="0 0 24 24" class="ctx-svg"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      </span>
+      <span data-i18n="ctx_file_copy_name">Скопировать имя</span>
+    </div>
+    <div class="context-item" id="ctx-file-copy-path">
+      <span class="ctx-icon">
+        <svg viewBox="0 0 24 24" class="ctx-svg"><path d="M4 17l6-6-6-6"/><path d="M12 19h8"/></svg>
+      </span>
+      <span data-i18n="ctx_file_copy_path">Скопировать полный путь</span>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Add Magnet Modal -->
+  <div id="modal-magnet" class="modal-backdrop hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 data-i18n="modal_magnet_title">Добавить Magnet-ссылку</h3>
+        <button class="modal-close" data-close="modal-magnet">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label for="magnet-input" data-i18n="modal_magnet_label">Введите или вставьте Magnet URI:</label>
+        <textarea id="magnet-input" rows="4" placeholder="magnet:?xt=urn:btih:..."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-close="modal-magnet" data-i18n="btn_cancel">Отмена</button>
+        <button class="btn btn-primary" id="btn-submit-magnet" data-i18n="btn_submit_magnet">Добавить в загрузки</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirm Modal -->
+  <div id="modal-delete" class="modal-backdrop hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 data-i18n="modal_delete_title">Удаление торрента</h3>
+        <button class="modal-close" data-close="modal-delete">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p><span data-i18n="modal_delete_confirm">Вы действительно хотите удалить</span> <b id="delete-torrent-name">-</b>?</p>
+        <label class="checkbox-label" style="margin-top: 14px;">
+          <input type="checkbox" id="delete-files-checkbox">
+          <span data-i18n="modal_delete_files">Также безвозвратно удалить скачанные файлы с диска</span>
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-close="modal-delete" data-i18n="btn_cancel">Отмена</button>
+        <button class="btn btn-danger" id="btn-confirm-delete" data-i18n="btn_delete">Удалить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="modal-settings" class="modal-backdrop hidden">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3 data-i18n="modal_settings_title">Настройки программы</h3>
+        <button class="modal-close" data-close="modal-settings">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="settings-section-title" data-i18n="settings_section_appearance">Внешний вид и язык</div>
+        <div class="form-row-2col">
+          <div class="form-group">
+            <label data-i18n="setting_theme_label">Тема оформления:</label>
+            <select id="setting-theme">
+              <option value="dark" data-i18n="theme_dark">Тёмная</option>
+              <option value="light" data-i18n="theme_light">Светлая</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label data-i18n="setting_language_label">Язык интерфейса:</label>
+            <div class="custom-select-wrapper" id="custom-language-select">
+              <div class="custom-select-trigger" tabindex="0" role="combobox" aria-haspopup="listbox" aria-expanded="false">
+                <span class="custom-select-text"><span class="flag-icon">🇷🇺</span> Русский (Russian)</span>
+                <svg class="custom-select-arrow" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </div>
+              <div class="custom-select-menu" role="listbox">
+                <div class="custom-select-option" data-value="ru" role="option"><span class="flag-icon">🇷🇺</span> Русский (Russian)</div>
+                <div class="custom-select-option" data-value="en" role="option"><span class="flag-icon">🇬🇧</span> English</div>
+                <div class="custom-select-option" data-value="de" role="option"><span class="flag-icon">🇩🇪</span> Deutsch (German)</div>
+                <div class="custom-select-option" data-value="fr" role="option"><span class="flag-icon">🇫🇷</span> Français (French)</div>
+                <div class="custom-select-option" data-value="es" role="option"><span class="flag-icon">🇪🇸</span> Español (Spanish)</div>
+                <div class="custom-select-option" data-value="it" role="option"><span class="flag-icon">🇮🇹</span> Italiano (Italian)</div>
+                <div class="custom-select-option" data-value="pt" role="option"><span class="flag-icon">🇵🇹</span> Português (Portuguese)</div>
+                <div class="custom-select-option" data-value="zh" role="option"><span class="flag-icon">🇨🇳</span> 简体中文 (Chinese)</div>
+                <div class="custom-select-option" data-value="ja" role="option"><span class="flag-icon">🇯🇵</span> 日本語 (Japanese)</div>
+                <div class="custom-select-option" data-value="pl" role="option"><span class="flag-icon">🇵🇱</span> Polski (Polish)</div>
+                <div class="custom-select-option" data-value="tr" role="option"><span class="flag-icon">🇹🇷</span> Türkçe (Turkish)</div>
+              </div>
+            </div>
+            <select id="setting-language" class="visually-hidden" tabindex="-1" aria-hidden="true">
+              <option value="ru">🇷🇺 Русский (Russian)</option>
+              <option value="en">🇬🇧 English</option>
+              <option value="de">🇩🇪 Deutsch (German)</option>
+              <option value="fr">🇫🇷 Français (French)</option>
+              <option value="es">🇪🇸 Español (Spanish)</option>
+              <option value="it">🇮🇹 Italiano (Italian)</option>
+              <option value="pt">🇵🇹 Português (Portuguese)</option>
+              <option value="zh">🇨🇳 简体中文 (Chinese)</option>
+              <option value="ja">🇯🇵 日本語 (Japanese)</option>
+              <option value="pl">🇵🇱 Polski (Polish)</option>
+              <option value="tr">🇹🇷 Türkçe (Turkish)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label data-i18n="lbl_default_download_dir">Папка загрузок по умолчанию:</label>
+          <div class="input-with-button">
+            <input type="text" id="setting-download-dir" readonly>
+            <button class="btn btn-secondary" id="btn-browse-dir" data-i18n="btn_browse">Обзор...</button>
+            <button class="btn btn-secondary" id="btn-reset-downloads" title="Вернуть стандартную папку 'Загрузки'" data-i18n="btn_reset_downloads" data-i18n-title="btn_reset_downloads_title">В Загрузки</button>
+          </div>
+          <small class="field-hint" data-i18n="hint_default_download_dir">Все новые торренты будут сохраняться в эту папку</small>
+        </div>
+
+        <div class="form-row-2col">
+          <div class="form-group">
+            <label data-i18n="lbl_listen_port">Порт для входящих соединений (0 = авто):</label>
+            <input type="number" id="setting-port" min="0" max="65535">
+          </div>
+          <div class="form-group">
+            <label data-i18n="lbl_max_conns">Макс. пиров на один торрент:</label>
+            <input type="number" id="setting-max-conns" min="10" max="500">
+          </div>
+        </div>
+
+        <div class="form-row-2col">
+          <div class="form-group">
+            <label data-i18n="lbl_dl_limit">Ограничение загрузки (КБ/с, 0 = Без ограничений):</label>
+            <input type="number" id="setting-dl-limit" min="0" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label data-i18n="lbl_ul_limit">Ограничение отдачи (КБ/с, 0 = Без ограничений):</label>
+            <input type="number" id="setting-ul-limit" min="0" placeholder="0">
+          </div>
+        </div>
+
+        <div class="settings-section-title" data-i18n="sec_p2p">Сетевые протоколы P2P</div>
+        <div class="form-row-checkboxes">
+          <label class="checkbox-label">
+            <input type="checkbox" id="setting-dht">
+            <span data-i18n="lbl_enable_dht">Включить DHT (Distributed Hash Table — поиск пиров без трекера)</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="setting-pex">
+            <span data-i18n="lbl_enable_pex">Включить PEX (Peer Exchange — обмен списками участников)</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="setting-upnp">
+            <span data-i18n="lbl_enable_upnp">Включить UPnP / NAT-PMP (автоматическая переадресация портов роутера)</span>
+          </label>
+        </div>
+
+        <div class="settings-section-title" data-i18n="sec_win_integration">Интеграция с Windows</div>
+        <div class="form-row-checkboxes">
+          <label class="checkbox-label">
+            <input type="checkbox" id="setting-assoc-torrent">
+            <span data-i18n="lbl_assoc_torrent">Ассоциировать со всеми .torrent файлами</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="setting-assoc-magnet">
+            <span data-i18n="lbl_assoc_magnet">Ассоциировать с magnet: ссылками в браузерах</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="setting-autostart">
+            <span data-i18n="lbl_autostart">Автоматически запускать SmirnovTorrent при входе в Windows</span>
+          </label>
+        </div>
+
+        <div class="settings-section-title" data-i18n="sec_tray">Системный трей и фоновый режим</div>
+        <div class="form-row-checkboxes">
+          <label class="checkbox-label">
+            <input type="checkbox" id="setting-minimize-tray">
+            <span data-i18n="lbl_minimize_tray">Сворачивать окно в системный трей при минимизации</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="setting-close-tray">
+            <span data-i18n="lbl_close_tray">Кнопка закрытия [X] сворачивает программу в трей вместо выхода</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="setting-start-minimized">
+            <span data-i18n="lbl_start_minimized">Запускать программу сразу свёрнутой в трей</span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-close="modal-settings" data-i18n="btn_cancel">Отмена</button>
+        <button class="btn btn-primary" id="btn-save-settings" data-i18n="btn_save_settings">Сохранить настройки</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

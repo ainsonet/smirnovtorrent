@@ -1,1 +1,0 @@
-.\smirnovtorrent.exe webui

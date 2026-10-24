@@ -1,359 +1,136 @@
-# [SmirnovTorrent](https://ainsonet.github.io/smirnovtorrent/)
+# SmirnovTorrent
 
-[![Версия](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/ainsonet/smirnovtorrent/releases)
-[![Лицензия](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Go](https://img.shields.io/badge/Go-1.24.0-00ADD8.svg?logo=go)](https://go.dev/)
+[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev/)
+[![Platform](https://img.shields.io/badge/Platform-Windows-0078D6?style=flat&logo=windows)](https://microsoft.com/windows)
+[![License](https://img.shields.io/badge/License-MIT-2ea44f?style=flat)](LICENSE)
+[![Architecture](https://img.shields.io/badge/Arch-x64%20%7C%20arm64-555555?style=flat)]()
 
-Лёгкий, современный BitTorrent клиент с веб-интерфейсом, написанный на Go.
+Быстрый, легковесный BitTorrent-клиент для Windows, написанный на Go. Поставляется в виде одного автономного исполняемого файла (~22 МБ), использует нативное окно WebView2 вместо тяжеловесного Electron и потребляет минимум системных ресурсов.
 
-<img src="https://raw.githubusercontent.com/ainsonet/smirnovtorrent/master/logo.png" alt="SmirnovTorrent Logo" width="200"/>
+Интерфейс спроектирован в классическом стиле qBittorrent: фильтрация по категориям, интерактивная карта кусочков (Pieces Map), последовательное скачивание для предпросмотра медиафайлов, поддержка тёмной и светлой тем, а также локализация на 11 языков.
 
-## Особенности
+---
 
-- Высокая производительность - Оптимизирован для быстрых загрузок
-- Современный веб-интерфейс - Красивый UI с поддержкой тёмной/светлой темы
-- Безопасность - Поддержка MSE/PE шифрования
-- DHT и PEX - Децентрализованное обнаружение пиров
-- Продолжение загрузок - Сохранение прогресса при остановке
-- Статистика в реальном времени - Скорости, пиры, прогресс
-- Удобная организация - Автоматическая сортировка файлов
-- Портативность - Не требует установки
+## Возможности
 
-## Содержание
+### BitTorrent-движок
+- **Протоколы и источники**: поддержка файлов `.torrent` и Magnet-ссылок (`magnet:?xt=urn:btih:...`).
+- **Трекеры**: работа с UDP-трекерами (BEP 15) и HTTP/HTTPS-анонсерами (BEP 3).
+- **Бестрекерный поиск**: децентрализованная таблица DHT (Kademlia) и обмен пирами PEX (Peer Exchange).
+- **Сетевые возможности**: автоматический проброс портов через UPnP и NAT-PMP.
+- **Ограничение скорости**: раздельные лимиты скорости загрузки и отдачи (в КБ/с).
 
-- [SmirnovTorrent](#smirnovtorrent)
-  - [Особенности](#особенности)
-  - [Содержание](#содержание)
-  - [Быстрый старт](#быстрый-старт)
-    - [Самый простой способ (Windows)](#самый-простой-способ-windows)
-    - [Windows (готовый исполняемый файл)](#windows-готовый-исполняемый-файл)
-    - [Из командной строки](#из-командной-строки)
-  - [Установка](#установка)
-    - [Windows](#windows)
-    - [Из исходников](#из-исходников)
-  - [Использование](#использование)
-    - [Веб-интерфейс (рекомендуется)](#веб-интерфейс-рекомендуется)
-    - [Командная строка](#командная-строка)
-  - [Конфигурация](#конфигурация)
-    - [Файл конфигурации](#файл-конфигурации)
-    - [Параметры](#параметры)
-  - [Сборка из исходников](#сборка-из-исходников)
-    - [Требования](#требования)
-    - [Сборка](#сборка)
-    - [Проверка сборки](#проверка-сборки)
-  - [Структура проекта](#структура-проекта)
-  - [Документация API](#документация-api)
-    - [Эндпоинты веб-интерфейса](#эндпоинты-веб-интерфейса)
-    - [Пример ответа API](#пример-ответа-api)
-  - [Вклад](#вклад)
-    - [Как внести вклад](#как-внести-вклад)
-    - [Правила разработки](#правила-разработки)
-  - [Лицензия](#лицензия)
-  - [Благодарности](#благодарности)
-  - [Контакты](#контакты)
+### Управление загрузками
+- **Последовательное скачивание (Sequential Download)**: загрузка кусочков строго по порядку, что позволяет воспроизводить видеофайлы до завершения всей загрузки.
+- **Приоритеты файлов**: выбор отдельных файлов внутри многофайловых раздач со статусами *Обычный*, *Высокий* или *Не скачивать*.
+- **Интерактивная карта кусочков (Pieces Map)**: визуализация состояния всех блоков раздачи в реальном времени.
+- **Сохранение сессии**: автоматическое сохранение и восстановление состояния всех раздач и настроек в `%APPDATA%\SmirnovTorrent`.
 
-## Быстрый старт
+### Интерфейс и эргономика
+- **Нативное окно Windows**: работа через системный Edge WebView2 — мгновенный запуск, плавная отрисовка и потребление ~50 МБ оперативной памяти.
+- **Две темы оформления**: глубокая тёмная (`dark`) и контрастная светлая (`light`) темы с автоматической синхронизацией цвета системного заголовка окна.
+- **Кастомный селектор языков**: поддержка 11 языков (Русский, English, Deutsch, Français, Español, Italiano, Português, 简体中文, 日本語, Polski, Türkçe) со встроенным векторным шрифтом флагов Twemoji.
+- **Инспектор раздачи**: вкладки *Общее*, *Трекеры*, *Пиры*, *Файлы* и *Карта кусочков*.
 
-### Самый простой способ (Windows)
+### Интеграция с Windows
+- **Сворачивание в трей**: работа в фоновом режиме через иконку в области уведомлений Windows.
+- **Ассоциация файлов**: регистрация приложения для открытия `.torrent` файлов и перехвата ссылок `magnet:`.
+- **Автозапуск**: опциональный запуск вместе с операционной системой в свёрнутом виде.
+- **Single Instance IPC**: при открытии второго файла торрента или ссылки аргументы мгновенно передаются в уже запущенный процесс без создания дубликатов окна.
 
-Просто запустите **start.bat** в папке с программой - веб-интерфейс откроется автоматически!
+---
 
-```
-cmd/smirnovtorrent/start.bat
-```
+## Горячие клавиши
 
-### Windows (готовый исполняемый файл)
+| Сочетание клавиш | Действие |
+| :--- | :--- |
+| `Ctrl + O` | Открыть диалог добавления `.torrent` файла |
+| `Ctrl + M` | Открыть модальное окно добавления Magnet-ссылки |
+| `Ctrl + F` | Перевести фокус на строку поиска / фильтра раздач |
+| `Space` | Приостановить или возобновить выбранную раздачу |
+| `Delete` | Запросить удаление выбранной раздачи |
+| `Enter` | Открыть папку с раздачей в Проводнике (или запустить файл во вкладке *Файлы*) |
+| `Ctrl + Enter` | Подтвердить добавление Magnet-ссылки из текстового поля |
+| `Esc` | Закрыть модальное окно, контекстное меню или очистить строку поиска |
 
-1. [Скачайте последнюю версию](https://github.com/ainsonet/smirnovtorrent/releases)
-2. Распакуйте архив
-3. Запустите `smirnovtorrent.exe` или `start.bat`
-4. Откройте браузер по адресу `http://localhost:8080`
+---
 
-### Из командной строки
+## Аргументы командной строки
 
-```bash
-# Загрузить торрент файл
-smirnovtorrent download example.torrent
-
-# Запустить веб-интерфейс
-smirnovtorrent webui
-
-# Показать информацию о торренте
-smirnovtorrent info example.torrent
-```
-
-## Установка
-
-### Windows
-
-Скачайте последнюю версию с [GitHub Releases](https://github.com/ainsonet/smirnovtorrent/releases):
+Приложение поддерживает стандартные параметры вызова из терминала, ярлыков и ассоциаций Windows:
 
 ```powershell
-# Используя PowerShell
-Invoke-WebRequest -Uri "https://github.com/ainsonet/smirnovtorrent/releases/download/v1.0.0/smirnovtorrent-windows.zip" -OutFile "smirnovtorrent.zip"
-Expand-Archive smirnovtorrent.zip
-.\smirnovtorrent\smirnovtorrent.exe webui
+# Запуск с добавлением торрент-файла
+SmirnovTorrent.exe "C:\Downloads\ubuntu-24.04.torrent"
+
+# Запуск с добавлением Magnet-ссылки
+SmirnovTorrent.exe "magnet:?xt=urn:btih:..."
+
+# Запуск в фоновом режиме (свёрнутым в системный трей)
+SmirnovTorrent.exe --minimized
 ```
 
-### Из исходников
-
-Требуется **Go 1.24.0** или новее:
-
-```bash
-# Клонируйте репозиторий
-git clone https://github.com/ainsonet/smirnovtorrent.git
-cd smirnovtorrent
-
-# Скомпилируйте
-go build -o smirnovtorrent.exe ./cmd/smirnovtorrent
-
-# Запустите
-.\smirnovtorrent.exe webui
-```
-
-## Использование
-
-### Веб-интерфейс (рекомендуется)
-
-**Самый удобный способ** - запустить `start.bat` или выполнить:
-
-```bash
-smirnovtorrent webui
-```
-
-Веб-интерфейс предоставляет удобный GUI для управления загрузками:
-
-1. **Откройте браузер:**
-   - Перейдите по адресу `http://localhost:8080`
-   - Браузер откроется автоматически (Windows)
-
-2. **Добавление торрента:**
-   - Нажмите кнопку **"Обзор"** (folder icon)
-   - Выберите `.torrent` файл
-   - Нажмите **"Добавить"**
-   - Загрузка начнётся автоматически
-
-3. **Управление:**
-   - **Pause** - Приостановить загрузку
-   - **Open Folder** - Открыть папку с файлами (после завершения)
-   - **Remove** - Удалить торрент
-
-### Командная строка
-
-Полный список команд:
-
-```bash
-# Показать справку
-smirnovtorrent help
-
-# Скачать торрент
-smirnovtorrent download <файл.torrent|magnet> [опции]
-
-# Опции для загрузки:
-#   -o string         Выходная директория
-#   -download-limit   Лимит загрузки (байт/сек, 0 = без ограничений)
-#   -upload-limit     Лимит отдачи (байт/сек, 0 = без ограничений)
-#   -dht              Включить DHT (по умолчанию: true)
-#   -pex              Включить PEX (по умолчанию: true)
-#   -encrypt          Включить шифрование (по умолчанию: true)
-
-# Примеры:
-smirnovtorrent download example.torrent
-smirnovtorrent download file.torrent -o ~/Downloads
-smirnovtorrent download file.torrent -download-limit 1048576 -upload-limit 524288
-smirnovtorrent download "magnet:?xt=urn:btih:..."
-
-# Запустить веб-интерфейс
-smirnovtorrent webui          # Порт 8080 (по умолчанию)
-smirnovtorrent webui 9000     # Порт 9000
-
-# Информация о торренте
-smirnovtorrent info example.torrent
-
-# Показать версию
-smirnovtorrent version
-```
-
-## Конфигурация
-
-### Файл конфигурации
-
-Создайте файл `smirnovtorrent.json` в директории приложения:
-
-```json
-{
-  "WebUIPort": 8080,
-  "DownloadRateLimit": 0,
-  "UploadRateLimit": 0,
-  "EnableDHT": true,
-  "EnablePEX": true,
-  "EnableEncryption": true,
-  "DefaultDownloadDir": "C:\\Users\\user\\Downloads"
-}
-```
-
-### Параметры
-
-| Параметр | Тип | По умолчанию | Описание |
-|----------|-----|--------------|----------|
-| `WebUIPort` | int | `8080` | Порт веб-интерфейса |
-| `DownloadRateLimit` | int | `0` | Лимит загрузки (байт/сек) |
-| `UploadRateLimit` | int | `0` | Лимит отдачи (байт/сек) |
-| `EnableDHT` | bool | `true` | Включить DHT |
-| `EnablePEX` | bool | `true` | Включить Peer Exchange |
-| `EnableEncryption` | bool | `true` | Включить MSE шифрование |
-| `DefaultDownloadDir` | string | `.` | Директория по умолчанию |
+---
 
 ## Сборка из исходников
 
 ### Требования
+- **Go 1.21** или новее
+- Установленный компонент **Microsoft Edge WebView2** (входит в состав Windows 10/11 по умолчанию)
+- Утилита [rsrc](https://github.com/akavel/rsrc) (необходима только при изменении `.ico` значка):
+  ```powershell
+  go install github.com/akavel/rsrc@latest
+  ```
 
-- **Go** 1.24.0 или новее
-- **Git** (для клонирования репозитория)
+### Сборка исполняемого файла
 
-### Сборка
+1. Склонируйте репозиторий:
+   ```powershell
+   git clone https://github.com/ainsonet/smirnovtorrent.git
+   cd smirnovtorrent
+   ```
 
-```bash
-# Клонируйте репозиторий
-git clone https://github.com/ainsonet/smirnovtorrent.git
-cd smirnovtorrent
+2. Соберите проект скриптом `build.bat` или командой Go:
+   ```powershell
+   # Чистая сборка GUI-приложения без консольного окна:
+   go build -ldflags "-H windowsgui -s -w" -o SmirnovTorrent.exe .
+   ```
 
-# Обычная сборка
-go build -o smirnovtorrent.exe ./cmd/smirnovtorrent
+3. Для сборки с выводом логов в консоль (режим отладки):
+   ```powershell
+   go build -o SmirnovTorrent.exe .
+   ```
 
-# Сборка с оптимизациями
-go build -ldflags="-s -w" -o smirnovtorrent.exe ./cmd/smirnovtorrent
-
-# Сборка инсталлятора
-powershell -ExecutionPolicy Bypass -File build-installer.ps1
-```
-
-### Проверка сборки
-
-```bash
-# Запустите тесты
-go test ./...
-
-# Проверьте форматирование
-go fmt ./...
-
-# Проверьте линтером
-golangci-lint run
-```
+---
 
 ## Структура проекта
 
 ```
-SmirnovTorrent/
-├── cmd/
-│   └── smirnovtorrent/
-│       ├── main.go           # Точка входа CLI
-│       ├── webui.go          # Веб-сервер
-│       ├── webui.html        # Веб-интерфейс
-│       └── start.bat         # Быстрый запуск GUI
-│
-├── internal/
-│   ├── config/               # Управление конфигурацией
-│   ├── engine/
-│   │   ├── anacrolix_engine.go  # Движок загрузки
-│   │   └── resume.go         # Сохранение прогресса
-│   ├── logger/               # Логирование
-│   ├── parser/               # Парсер .torrent файлов
-│   └── tracker/              # Tracker клиент
-│
-├── pkg/
-│   └── bencode/              # Bencode кодирование
-│
-├── website/                  # Официальный сайт
-│   ├── index.html
-│   ├── styles.css
-│   ├── script.js
-│   └── logo.png
-│
-├── build-installer.ps1       # Создание инсталлятора
-├── go.mod                    # Зависимости Go
-├── LICENSE                   # Лицензия MIT
-└── README.md                 # Документация
+smirnovtorrent/
+├── config/              # Конфигурация клиента и сохранение настроек
+├── engine/              # Интеграция с BitTorrent-движком anacrolix/torrent
+├── sysintegration/      # Интеграция с Windows (реестр, ассоциации файлов, автозапуск)
+├── ui/                  # Встроенный HTTP/WebSocket сервер интерфейса
+│   └── assets/          # HTML5, CSS3, JS, шрифты и статические ресурсы
+├── window/              # Нативное Win32 окно, WebView2, трей и оконные сообщения
+├── build.bat            # Скрипт быстрой сборки для Windows
+├── main.go              # Точка входа приложения и IPC-маршрутизация
+├── smirnovtorrent.ico   # Многослойная системная иконка приложения
+└── rsrc_windows_*.syso  # Скомпилированные Windows-ресурсы значка для go build
 ```
-
-## Документация API
-
-### Эндпоинты веб-интерфейса
-
-| Метод | Путь | Описание |
-|-------|------|----------|
-| `GET` | `/` | Главная страница |
-| `GET` | `/api/status` | Статус загрузки |
-| `POST` | `/api/add` | Добавить торрент |
-| `POST` | `/api/start` | Запустить загрузку |
-| `POST` | `/api/stop` | Остановить загрузку |
-| `POST` | `/api/pause` | Приостановить |
-| `POST` | `/api/resume` | Возобновить |
-| `POST` | `/api/remove` | Удалить торрент |
-| `POST` | `/api/open-folder` | Открыть папку |
-| `GET` | `/logo.png` | Логотип |
-
-### Пример ответа API
-
-```json
-{
-  "status": "completed",
-  "progress": 100,
-  "downloaded": 5368709120,
-  "uploaded": 2147483648,
-  "totalSize": 5368709120,
-  "activePeers": 15,
-  "downloadSpeed": 0,
-  "uploadSpeed": 524288,
-  "torrentName": "example-file.iso",
-  "path": "C:\\Downloads\\example.torrent"
-}
-```
-
-## Вклад
-
-Мы приветствуем вклад! Пожалуйста, прочитайте наши правила перед созданием pull request'ов.
-
-### Как внести вклад
-
-1. **Форкните** репозиторий
-2. **Создайте ветку** для вашей фичи:
-   ```bash
-   git checkout -b feature/amazing-feature
-   ```
-3. **Сделайте изменения** и запишите тесты
-4. **Закоммитьте** изменения:
-   ```bash
-   git commit -m 'Добавлена amazing фича'
-   ```
-5. **Пушните** в ветку:
-   ```bash
-   git push origin feature/amazing-feature
-   ```
-6. **Откройте Pull Request**
-
-### Правила разработки
-
-- Следуйте стилю кода Go
-- Пишите понятные комментарии
-- Добавляйте тесты для новых функций
-- Обновляйте документацию при необходимости
-
-## Лицензия
-
-Этот проект распространяется под лицензией **MIT**. См. файл [LICENSE](LICENSE) для деталей.
-
-## Благодарности
-
-- [anacrolix/torrent](https://github.com/anacrolix/torrent) - Отличный BitTorrent клиент на Go
-- [GoLang](https://golang.org/) - Великолепный язык программирования
-- Все контрибьюторы проекта
-
-## Контакты
-
-- **Автор**: Дмитрий Смирнов
-- **GitHub**: [ainsonet/smirnovtorrent](https://github.com/ainsonet/smirnovtorrent)
 
 ---
 
-**Разработано в России**
+## Хранение данных
+
+Все пользовательские данные и файлы конфигурации хранятся изолированно в профиле пользователя:
+
+- **Конфигурация**: `%APPDATA%\SmirnovTorrent\config.json`
+- **Состояние сессии**: `%APPDATA%\SmirnovTorrent\session.json`
+- **Временный IPC-порт**: `%APPDATA%\SmirnovTorrent\app.port`
+
+---
+
+## Лицензия
+
+Проект распространяется под лицензией [MIT](LICENSE).

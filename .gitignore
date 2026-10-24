@@ -34,3 +34,7 @@ bin/
 # Distribution archives
 *.zip
 SmirnovTorrent.zip
+
+# Runtime temporary files
+app.port
+port.txt
